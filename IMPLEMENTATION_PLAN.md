@@ -1,17 +1,17 @@
-# Jev Plays Pac-Man — 詳細実装計画書
+# Jev Plays Pac-Man — Detailed Implementation Plan
 
 ## 0. Goal
 
-TypeSafe AI の **Jev** にリアルタイムで Pac-Man をプレイさせる Web アプリを実装する。
+Build a web app that lets TypeSafe AI's **Jev** play Pac-Man in real time.
 
-ゲーム画面そのものを画像として Jev に渡すのではなく、
+We do not hand Jev the game screen as an image. Instead the pipeline is:
 
 ```text
 Pac-Man game
     ↓
-ゲームエンジンが現在状態を取得
+game engine reads the current state
     ↓
-コードで合法手・距離・危険情報などを計算
+code computes legal moves, distances, danger
     ↓
 structured JSON
     ↓
@@ -19,30 +19,28 @@ Jev
     ↓
 UP / DOWN / LEFT / RIGHT
     ↓
-ゲームエンジン
+game engine
 ```
 
-という構成にする。
+Jev does not simulate the game or run pathfinding itself.
 
-Jev はゲームそのものをシミュレーションしたり経路探索したりするのではなく、
+> **"Given the current situation, which of the available directions should it pick?"**
 
-> **「現在の状況では、利用可能な方向のうちどれを選ぶべきか」**
+That local judgement is the whole of its job.
 
-という局所的な判断を担当する。
+No extra training, fine-tuning, or RL is done on Jev.
 
-Jev の追加学習、fine-tuning、RL は一切行わない。
-
-**完全 zero-shot でプレイさせる。**
+**It plays fully zero-shot.**
 
 ---
 
-# 1. 完成形
+# 1. The Finished Product
 
-Web ページを開くと中央に Pac-Man が表示される。
+Open the web page and Pac-Man appears in the center.
 
-右側には Jev の意思決定がリアルタイム表示される。
+Jev's decisions are displayed in real time on the right.
 
-例:
+Example:
 
 ```text
 JEV DECISION
@@ -71,9 +69,9 @@ RIGHT
   dead end: false
 ```
 
-Pac-Man は選ばれた方向へ進む。
+Pac-Man moves in the chosen direction.
 
-ゲーム終了後は、
+When the game ends, the app shows:
 
 ```text
 Score
@@ -86,37 +84,33 @@ Jev decision success rate
 Fallback count
 ```
 
-を表示する。
+Display all of them.
 
 ---
 
-# 2. 最重要設計方針
+# 2. Most Important Design Principle
 
-## Jevに毎フレーム操作させない
+## Do Not Let Jev Act Every Frame
 
-絶対に、
+Never do this:
 
 ```text
 60 FPS
 ↓
-60回/秒 Jev API
+60 Jev API calls per second
 ```
 
-とはしない。
+Pac-Man's movement itself is handled by the game engine.
 
-Pac-Man の移動そのものはゲームエンジンが処理する。
-
-Jev を呼ぶのは基本的に、
+Jev is called only at:
 
 ```text
-交差点
-または
-複数方向から選択する必要がある地点
+junctions
+or
+points where a direction must be chosen from several options
 ```
 
-だけ。
-
-つまり、
+That is, we ask Jev only when Pac-Man approaches a junction such as
 
 ```text
 ───────┬──────
@@ -124,52 +118,48 @@ Jev を呼ぶのは基本的に、
        │
 ```
 
-のような junction に近づいたときだけ Jev に問い合わせる。
+Straight corridors advance automatically.
 
-直線は自動的に進む。
-
-曲がる方向が1つしか存在しない場所でも Jev は呼ばない。
+Jev is not called where only one turn is possible either.
 
 ---
 
-# 3. Jevの役割とコードの役割
+# 3. Jev's Role and the Code's Role
 
-責務を明確に分離する。
+Separate the responsibilities cleanly.
 
-## コードが担当するもの
+## What the Code Owns
 
-コード側は**事実の計算**を担当する。
+The code owns **computing facts**.
 
-例:
+Examples:
 
-- 壁判定
-- 移動
-- 衝突判定
-- Pellet取得
-- Power Pellet取得
-- Ghost移動
-- 合法手の列挙
-- 最短距離
-- Ghostまでの距離
-- Pelletまでの距離
-- dead end判定
-- 周囲のPellet数
-- 次のjunction
-- frightened状態
-- スコア
-- 残機
+- wall detection
+- movement
+- collision detection
+- pellet pickup
+- power pellet pickup
+- ghost movement
+- enumerating legal moves
+- shortest distance
+- distance to ghosts
+- distance to pellets
+- dead end detection
+- pellet count nearby
+- next junction
+- frightened state
+- score
+- lives
 
-コード側で、
+The code does not normally make the final call such as
 
-> 「LEFT が一番良い」
-
-という最終判断は通常行わない。
+> "LEFT is the best option."
 
 ---
 
-## Jevが担当するもの
+## What Jev Owns
 
-Jev は、
+Out of
 
 ```text
 UP
@@ -178,17 +168,17 @@ LEFT
 RIGHT
 ```
 
-のうち、**現在合法なものだけ**から1つを選ぶ。
+Jev picks one of **the currently legal directions only**.
 
-Jevには `Choice` を使用する。
+Jev uses `Choice`.
 
-Jevに自由な文章を生成させない。
+Jev never generates free-form text.
 
 ---
 
-# 4. 技術スタック
+# 4. Tech Stack
 
-実装を単純化するため以下に固定する。
+Pin the stack to the following to keep the implementation simple.
 
 ```text
 Next.js
@@ -199,29 +189,29 @@ HTML Canvas
 Vitest
 ```
 
-Node.js 20 以上を使用。
+Use Node.js 20 or newer.
 
-Jev の公式 JavaScript SDK:
+Jev's official JavaScript SDK:
 
 ```bash
 npm install @typesafe-ai/sdk
 ```
 
-APIキーは必ずサーバ側だけに置く。
+The API key lives on the server only.
 
 ```env
 TYPESAFE_API_KEY=...
 ```
 
-ブラウザへ絶対に送らない。
+Never send it to the browser.
 
-TypeSafe公式SDKでは `TypeSafeClient().systemOne(...)` と `choice(...)` が利用できる。
+The official TypeSafe SDK exposes `TypeSafeClient().systemOne(...)` and `choice(...)`.
 
 ---
 
-# 5. プロジェクト構成
+# 5. Project Structure
 
-最終的におおむね以下の構成にする。
+The final layout is roughly this:
 
 ```text
 jev-pacman/
@@ -279,15 +269,15 @@ jev-pacman/
 └── IMPLEMENTATION_PLAN.md
 ```
 
-ゲームロジックを React component 内に直接書かないこと。
+Do not write game logic directly inside React components.
 
 ---
 
-# 6. ゲームエンジン
+# 6. Game Engine
 
-## 6.1 座標系
+## 6.1 Coordinate System
 
-迷路は tile grid として扱う。
+Treat the maze as a tile grid.
 
 ```ts
 type TilePosition = {
@@ -296,7 +286,7 @@ type TilePosition = {
 };
 ```
 
-ゲームロジック上の座標と Canvas pixel 座標を分離する。
+Separate game-logic coordinates from Canvas pixel coordinates.
 
 ```text
 game coordinates
@@ -306,15 +296,15 @@ render transform
 canvas coordinates
 ```
 
-これによりゲーム速度やCanvasサイズを変更してもゲームロジックに影響しない。
+This way game speed and Canvas size can change without affecting game logic.
 
 ---
 
 # 7. Maze
 
-MazeはASCIIまたは2次元配列として定義する。
+Define the maze as ASCII or as a 2D array.
 
-例えば:
+For example:
 
 ```text
 ###################
@@ -331,11 +321,11 @@ MazeはASCIIまたは2次元配列として定義する。
 ###################
 ```
 
-実際にはより大きく、Pac-Manらしい maze を作る。
+The real maze is larger and looks more like Pac-Man's.
 
-ただしオリジナルのゲームデータやspriteをコピーする必要はない。
+It does not need to copy the original game data or sprites, though.
 
-記号:
+Symbols:
 
 ```text
 # = wall
@@ -350,36 +340,36 @@ space = walkable floor
 
 # 8. Maze Validation
 
-起動時に必ずmazeを検証する。
+Always validate the maze at startup.
 
-以下の異常があれば開発時に即座にthrowする。
+Throw immediately in development on any of these:
 
 ```text
-行ごとに幅が違う
-Pac-Man spawnがない
-Pac-Man spawnが複数ある
-Ghost spawnがない
-孤立したwalkable tileが存在する
-到達不能なpelletが存在する
+rows with different widths
+no Pac-Man spawn
+multiple Pac-Man spawns
+no ghost spawn
+isolated walkable tiles
+unreachable pellets
 ```
 
-BFSで、
+Use BFS to check that
 
 ```text
 Pac-Man spawn
 ↓
-全walkable tile
+every walkable tile
 ```
 
-の到達可能性を調べる。
+is reachable from the spawn.
 
-これにより、coding agent が maze を少し間違えてもゲーム全体が壊れないようにする。
+This keeps a small maze mistake by a coding agent from breaking the whole game.
 
 ---
 
 # 9. Direction
 
-方向は文字列unionとして固定する。
+Fix directions as a string union.
 
 ```ts
 export type Direction =
@@ -389,7 +379,7 @@ export type Direction =
   | "RIGHT";
 ```
 
-helper:
+Helpers:
 
 ```ts
 directionVector(direction)
@@ -398,15 +388,15 @@ turnLeft(direction)
 turnRight(direction)
 ```
 
-を用意する。
+Provide all four.
 
 ---
 
-# 10. Pac-Man movement
+# 10. Pac-Man Movement
 
-Pac-Man は tile center 間を連続的に移動する。
+Pac-Man moves continuously between tile centers.
 
-内部状態例:
+Example internal state:
 
 ```ts
 interface PacmanState {
@@ -422,15 +412,15 @@ interface PacmanState {
 }
 ```
 
-方向変更は原則 tile center で行う。
+Change direction at tile centers as a rule.
 
-壁へめり込ませない。
+Never let Pac-Man sink into a wall.
 
 ---
 
-# 11. Fixed timestep
+# 11. Fixed Timestep
 
-ゲームロジックは React のrender速度に依存させない。
+Do not tie game logic to React's render rate.
 
 ```text
 requestAnimationFrame
@@ -440,21 +430,21 @@ elapsed time
 fixed 60 Hz simulation
 ```
 
-を使用する。
+Use that.
 
-例えば:
+For example:
 
 ```ts
 const FIXED_DT = 1 / 60;
 ```
 
-accumulator方式でsimulationを進める。
+Advance the simulation with an accumulator.
 
 ---
 
 # 12. Ghost
 
-4体実装する。
+Implement four ghosts.
 
 ```ts
 type GhostMode =
@@ -463,7 +453,7 @@ type GhostMode =
   | "FRIGHTENED";
 ```
 
-最低限、
+At minimum, these must be distinguishable:
 
 ```text
 Blinky
@@ -472,117 +462,111 @@ Inky
 Clyde
 ```
 
-を識別できるようにする。
-
-ただし初期実装では arcade版を完全再現する必要はない。
+The initial implementation does not have to reproduce the arcade version exactly.
 
 ---
 
 # 13. Ghost AI
 
-GhostはJevで操作しない。
+Ghosts are not controlled by Jev.
 
-決定論的なゲームロジックにする。
+They are deterministic game logic.
 
 ### Blinky
 
-Pac-Manの現在位置をtarget。
+Targets Pac-Man's current tile.
 
 ### Pinky
 
-Pac-Manの進行方向数tile先をtarget。
+Targets a few tiles ahead along Pac-Man's heading.
 
 ### Inky
 
-Pac-Man前方とBlinky位置からtargetを作る。
+Builds its target from the tile ahead of Pac-Man and Blinky's position.
 
-実装が複雑になる場合、
+If that gets complicated,
 
 ```text
-Pac-Manの2～4 tile前方
+2–4 tiles ahead of Pac-Man
 ```
 
-でもよい。
+is acceptable.
 
 ### Clyde
 
-Pac-Manが遠ければCHASE。
+CHASE while Pac-Man is far away.
 
-一定距離以内ならmaze cornerへ戻る。
+Head back to a maze corner within a fixed distance.
 
 ---
 
-# 14. Ghost junction movement
+# 14. Ghost Junction Movement
 
-Ghost が intersection に到達した場合、
-
-合法方向それぞれについて target までの距離を計算し、
+When a ghost reaches an intersection, it computes the distance to its target for each legal direction and
 
 ```text
-最短
+shortest
 ```
 
-を選ぶ。
+picks the shortest.
 
-通常時は即時reverseを避ける。
+Avoid immediate reversals in normal mode.
 
-FRIGHTENED時のみseeded RNGで選ぶ。
+Use a seeded RNG only in FRIGHTENED mode.
 
-`Math.random()` を直接ゲームロジックに使わない。
+Do not call `Math.random()` directly in game logic.
 
-seeded RNGを用意する。
+Provide a seeded RNG.
 
-これにより同じseedでゲームを再現可能にする。
+This makes a game reproducible from the same seed.
 
 ---
 
 # 15. Power Pellet
 
-Power Pellet取得時:
+When a power pellet is eaten:
 
 ```text
 GhostMode = FRIGHTENED
 ```
 
-にする。
+Switch to that mode.
 
-例えば:
+For example:
 
 ```ts
 FRIGHTENED_DURATION_MS = 7000;
 ```
 
-終了前には点滅させてもよい。
+The ghosts may blink before it ends.
 
-FRIGHTENED Ghost と Pac-Man が衝突した場合、
+When a FRIGHTENED ghost collides with Pac-Man,
 
 ```text
-Pac-Man死亡
+Pac-Man dies
 ```
 
-ではなく
+is not the outcome;
 
 ```text
 Ghost eaten
 ```
 
-にする。
+is.
 
 ---
 
-# 16. Junction detection
+# 16. Junction Detection
 
-今回最も重要な部分。
+This is the most important part.
 
-あるtileの合法方向を:
+Read the legal directions of a tile with:
 
 ```ts
 getLegalDirections(tile)
 ```
 
-で取得する。
-
-例えば:
+For example, if it returns
 
 ```text
 LEFT
@@ -590,66 +574,60 @@ RIGHT
 UP
 ```
 
-ならjunction。
+the tile is a junction.
 
-ただし Pac-Man が現在右向きなら、
+But if Pac-Man is currently heading right,
 
 ```text
 LEFT = reverse
 ```
 
-なので、意味のある選択肢は
+so the meaningful options are
 
 ```text
 RIGHT
 UP
 ```
 
-である。
-
 ---
 
-# 17. Jevを呼ぶ条件
+# 17. When to Call Jev
 
-以下の場合だけJevを呼ぶ。
+Call Jev only when
 
 ```ts
 meaningfulLegalDirections.length >= 2
 ```
 
-または
+or when
 
 ```text
-現在方向が塞がれており、
-複数の進行方向候補がある
+the current direction is blocked and
+several forward directions are available
 ```
 
-場合。
-
-逆に、
+Conversely, do not call Jev in
 
 ```text
-一本道
-強制corner
+straight corridors
+forced corners
 ```
-
-ではJevを呼ばない。
 
 ---
 
-# 18. なぜ毎tile Jevを呼ばないか
+# 18. Why Not Call Jev on Every Tile
 
-Pac-Manではほとんどのtileに意思決定は必要ない。
+Most tiles in Pac-Man require no decision at all.
 
-例えば:
+For example,
 
 ```text
 ──────────────>
 ```
 
-ならRIGHTを維持するだけ。
+just means keeping RIGHT.
 
-したがってJevを呼ぶのは
+So Jev is called only at places such as
 
 ```text
         ↑
@@ -657,25 +635,23 @@ Pac-Manではほとんどのtileに意思決定は必要ない。
         ↓
 ```
 
-などの場所だけにする。
+This gives:
 
-これにより、
-
-- API latency低減
-- API call削減
-- stateの意味が明確になる
-- decision feedが理解しやすくなる
-- Jevが得意なclassification問題になる
+- lower API latency
+- fewer API calls
+- unambiguous state
+- a decision feed that is easy to follow
+- a classification problem Jev is good at
 
 ---
 
-# 19. Jevは画像を見ない
+# 19. Jev Does Not See Images
 
-Jev にCanvas screenshotを送らない。
+Do not send Canvas screenshots to Jev.
 
-現在のJevは、プログラム状態などのtext / JSONからtyped decisionを返す用途に設計されている。
+Today's Jev is designed for returning typed decisions from text / JSON such as program state.
 
-したがって、
+So instead of
 
 ```text
 Canvas
@@ -685,7 +661,7 @@ computer vision
 Jev
 ```
 
-ではなく、
+use
 
 ```text
 Game engine state
@@ -695,17 +671,15 @@ JSON
 Jev
 ```
 
-とする。
-
 ---
 
-# 20. Observation生成
+# 20. Building the Observation
 
-`observation.ts` がゲーム内部状態からJev用状態を作る。
+`observation.ts` builds the Jev-facing state from the game's internal state.
 
-**Jevに内部クラスや巨大なゲームオブジェクトをそのままserializeしない。**
+**Never serialize internal classes or the huge game object straight to Jev.**
 
-専用のDTOを作る。
+Build a dedicated DTO.
 
 ```ts
 interface JevObservation {
@@ -748,7 +722,7 @@ interface JevObservation {
 
 # 21. CandidateAnalysis
 
-合法方向それぞれについてコードで特徴量を計算する。
+Compute features in code for each legal direction.
 
 ```ts
 interface CandidateAnalysis {
@@ -780,11 +754,11 @@ interface CandidateAnalysis {
 
 # 22. Pathfinding
 
-距離計算にはBFSを使用する。
+Use BFS for distance calculations.
 
-Mazeは小さいためA*などは不要。
+The maze is small, so A* and the like are unnecessary.
 
-関数を明確に分ける。
+Keep the functions cleanly separated.
 
 ```ts
 shortestPathDistance(
@@ -810,70 +784,68 @@ nearestGhostDistance(
 
 ---
 
-# 23. 各候補の評価地点
+# 23. Where Each Candidate Is Evaluated
 
-例えば junction で LEFT を選択した場合、
+For example, if LEFT is chosen at a junction,
 
-まずLEFT側の隣接tileへ1step移動した状態を仮定する。
+first assume Pac-Man has moved one step into the adjacent tile on the LEFT.
 
 ```text
 junction
    ↓
 candidate first tile
    ↓
-各種BFS
+the BFS runs
 ```
 
-すべてのcandidateについて同一ルールを適用する。
+Apply the same rule to every candidate.
 
 ---
 
-# 24. Danger ghost
+# 24. Dangerous Ghosts
 
-以下のGhostだけをdangerousとする。
+Only these ghosts count as dangerous:
 
 ```text
 CHASE
 SCATTER
 ```
 
-FRIGHTENED Ghost は dangerous として数えない。
+FRIGHTENED ghosts do not count as dangerous.
 
 ---
 
-# 25. Safe reachable area
+# 25. Safe Reachable Area
 
-必要であれば危険Ghost近傍を一時的にblockedとみなし、
+If needed, treat the area near dangerous ghosts as temporarily blocked and
 
-candidateから到達できるtile数を flood fill する。
+flood fill the number of tiles reachable from a candidate.
 
-例:
+Example:
 
 ```text
-Ghostから距離 <= 2
+distance from a ghost <= 2
 ```
 
-をunsafe tileとする。
+marks unsafe tiles.
 
-その上で、
+Then compute
 
 ```ts
 reachableSafeArea
 ```
 
-を計算する。
+This is useful for avoiding decisions that run into dead ends.
 
-これは袋小路へ突っ込む判断を減らすのに有効。
+But it is an auxiliary feature only,
 
-ただしこれは補助特徴であり、
-
-**コード側で最終行動を決めるためには使用しない。**
+**so do not use it to pick the final action in code.**
 
 ---
 
-# 26. Jev request
+# 26. Jev Request
 
-サーバ側では概念的に以下を実行する。
+Conceptually, the server does the following.
 
 ```ts
 import {
@@ -911,15 +883,15 @@ Choose exactly one legal direction.
 
 ---
 
-# 27. Dynamic criteria
+# 27. Dynamic Criteria
 
-重要。
+Important.
 
-すべての4方向を固定で候補にしない。
+Do not offer all four directions as fixed candidates.
 
-現在合法な方向だけを `criteria` に入れる。
+Only put the currently legal directions into `criteria`.
 
-例:
+Example:
 
 ```ts
 const criteria = {
@@ -931,22 +903,20 @@ const criteria = {
 };
 ```
 
-するとJevは、
+Jev then cannot return anything but
 
 ```text
 LEFT
 RIGHT
 ```
 
-以外を返せない。
-
-これがJevをゲーム制御へ利用する最大の利点の一つ。
+This is one of the biggest advantages of using Jev for game control.
 
 ---
 
-# 28. Stateの例
+# 28. Example State
 
-実際に送るstateは例えば:
+A state that is actually sent looks like this:
 
 ```json
 {
@@ -1011,66 +981,64 @@ RIGHT
 
 ---
 
-# 29. Jevにmaze全体を毎回渡さない
+# 29. Do Not Send the Whole Maze Every Time
 
-MVPではmaze全体を毎request送信しない。
+The MVP does not send the whole maze on every request.
 
-既存のJev Pac-Manデモではmaze・actors・legal directionsをstructured stateとして与える方式が確認されている。
+The existing Jev Pac-Man demo has been shown to work by supplying the maze, actors, and legal directions as structured state.
 
-ただし今回の実装では、より安定させるため、
+For stability, this implementation sends, not
 
 ```text
-巨大なmaze JSON
+a giant maze JSON blob
 ```
 
-より、
+but
 
 ```text
-必要なgame state
+the game state that matters
 +
-各candidateについてコードで算出した事実
+the facts computed in code for each candidate
 ```
 
-を中心に渡す。
+as the core payload.
 
-Jevが不得意な低レベル経路探索を減らし、
+That cuts down the low-level pathfinding Jev is bad at and
 
-**意味的なdecisionに集中させる。**
+**keeps it focused on semantic decisions.**
 
 ---
 
-# 30. Optional raw mode
+# 30. Optional Raw Mode
 
-完成後、研究・比較用として
+Once it works, you may add two modes for research and comparison:
 
 ```text
 ASSISTED
 RAW
 ```
 
-の2モードを追加してもよい。
-
 ### ASSISTED
 
-candidate特徴量あり。
+Candidate features included.
 
 ### RAW
 
-maze + actors + legal directionsのみ。
+Maze + actors + legal directions only.
 
-これにより、
+This lets you compare
 
-> engineered state representation がJevのゲーム性能をどれだけ改善するか
+> how much an engineered state representation improves Jev's game performance
 
-を比較できる。
+against the raw representation.
 
-ただしMVPではASSISTEDのみ実装する。
+Only ASSISTED is implemented in the MVP, though.
 
 ---
 
 # 31. API Route
 
-ブラウザからTypeSafe APIを直接呼ばない。
+The browser never calls the TypeSafe API directly.
 
 ```text
 browser
@@ -1082,19 +1050,19 @@ Next.js server
 TypeSafe
 ```
 
-とする。
+Make this the only path.
 
-理由:
+Reason:
 
 ```text
 TYPESAFE_API_KEY
 ```
 
-をブラウザへ漏らさないため。
+must not leak to the browser.
 
 ---
 
-# 32. /api/decide input
+# 32. /api/decide Input
 
 ```ts
 interface DecideRequest {
@@ -1106,7 +1074,7 @@ interface DecideRequest {
 
 ---
 
-# 33. /api/decide output
+# 33. /api/decide Output
 
 ```ts
 interface DecideResponse {
@@ -1128,45 +1096,41 @@ interface DecideResponse {
 
 ---
 
-# 34. API response validation
+# 34. API Response Validation
 
-サーバから返ってきた値を信用しきらない。
+Do not fully trust the value that comes back from the server.
 
-必ず、
+Always re-check
 
 ```ts
 legalDirections.includes(direction)
 ```
 
-を再確認する。
-
-不正ならJev decisionとして採用しない。
+If it fails, do not accept it as a Jev decision.
 
 ---
 
-# 35. Real-time latency対策
+# 35. Handling Real-Time Latency
 
-Jev APIをjunctionに到達してから呼ぶと、
+Calling the Jev API only after Pac-Man reaches the junction gives you
 
 ```text
 Pac-Man
 ↓
-junctionで停止
+stops at the junction
 ↓
-API待ち
+waits for the API
 ```
 
-となる。
+Avoid this.
 
-これを避ける。
-
-既存のJev Pac-Manでも、Pac-Manが動き続けられるよう**到達前のjunctionについて問い合わせる方式**が使われている。
+The existing Jev Pac-Man uses the same approach: **it queries the junction before Pac-Man arrives** so Pac-Man can keep moving.
 
 ---
 
-# 36. Junction lookahead
+# 36. Junction Lookahead
 
-Pac-Manがcorridorを進んでいる間に、
+While Pac-Man is moving along a corridor, run
 
 ```ts
 findNextDecisionPoint(
@@ -1175,9 +1139,7 @@ findNextDecisionPoint(
 )
 ```
 
-を実行する。
-
-例えば:
+For example:
 
 ```text
 Pac-Man
@@ -1187,39 +1149,35 @@ P ─ ─ ─ ─ ─ J
             junction
 ```
 
-このJを事前に見つける。
+Locate this J ahead of time.
 
 ---
 
-# 37. Prefetch distance
+# 37. Prefetch Distance
 
-初期値:
+Initial value:
 
 ```ts
 const DECISION_PREFETCH_TILES = 3;
 ```
 
-Pac-Manがjunctionから3tile以内へ入ったら、
+Once Pac-Man is within 3 tiles of the junction, start the
 
 ```text
 Jev request
 ```
 
-を開始する。
-
-Pac-Man自体は停止しない。
+Pac-Man itself never stops.
 
 ---
 
-# 38. Pending decision
+# 38. Pending Decision
 
-controllerは、
+The controller holds at most one
 
 ```ts
 pendingDecision
 ```
-
-を最大1つ保持する。
 
 ```ts
 interface PendingDecision {
@@ -1233,26 +1191,26 @@ interface PendingDecision {
 }
 ```
 
-同じjunctionについて複数requestを送らない。
+Never send more than one request for the same junction.
 
 ---
 
-# 39. Stale response
+# 39. Stale Responses
 
-非常に重要。
+Very important.
 
-Jev responseが返った時点で、
+By the time a Jev response arrives,
 
 ```text
-Pac-Manが既にjunctionを通過した
-死亡した
-ゲームがrestartされた
-別のlevelへ移動した
+Pac-Man already passed the junction
+Pac-Man died
+the game restarted
+the game moved to another level
 ```
 
-可能性がある。
+may all be true.
 
-そのため、
+So check
 
 ```ts
 gameEpoch
@@ -1260,9 +1218,7 @@ decisionId
 targetJunction
 ```
 
-をチェックする。
-
-古いresponseは絶対に適用しない。
+Never apply an old response.
 
 ```text
 response
@@ -1276,25 +1232,25 @@ discard
 
 ---
 
-# 40. Game epoch
+# 40. Game Epoch
 
-ゲーム開始時:
+At game start:
 
 ```ts
 gameEpoch++;
 ```
 
-死亡時やrestart時にも更新する。
+Update it on death and on restart too.
 
-requestにはepochを関連付ける。
+Associate an epoch with every request.
 
-response epochが違えば無視する。
+Ignore any response whose epoch differs.
 
 ---
 
-# 41. Decision timing
+# 41. Decision Timing
 
-状態遷移は以下。
+The state transitions are:
 
 ```text
 IDLE
@@ -1316,34 +1272,32 @@ APPLIED
 IDLE
 ```
 
-responseがjunction到達までに来なければ、
+If the response does not arrive before the junction, run
 
 ```text
 FALLBACK
 ```
 
-を実行する。
-
 ---
 
 # 42. Fallback
 
-Fallbackを高度なAIにしてはいけない。
+Do not make the fallback a clever AI.
 
-Jevが失敗したときに別のbotが実質ゲームをプレイしてしまうため。
+Otherwise a different bot effectively plays the game whenever Jev fails.
 
-fallbackは単純にする。
+Keep the fallback simple.
 
-優先順位:
+Priority:
 
 ```text
-1. 現在方向を維持できる → straight
-2. reverse以外の合法方向が1つ → それ
-3. dangerous ghostから最も離れる合法方向
+1. current direction is still legal → straight
+2. exactly one legal direction other than reverse → take it
+3. legal direction farthest from dangerous ghosts
 4. deterministic direction order
 ```
 
-最後のtie break:
+Final tie break:
 
 ```text
 UP
@@ -1352,51 +1306,47 @@ DOWN
 RIGHT
 ```
 
-の固定順。
+in this fixed order.
 
-fallbackを使ったdecisionは必ずUI上で
+Any decision that used the fallback must be shown in the UI as
 
 ```text
 FALLBACK
 ```
 
-と表示する。
-
 ---
 
-# 43. Jevがゲームをプレイしていることを保証する
+# 43. Guaranteeing That Jev Is Playing the Game
 
-通常のdecisionについて、
+For normal decisions, do not overwrite Jev's output with a
 
 ```text
 heuristic score
 ```
 
-でJevの出力を上書きしない。
+Otherwise
 
-そうすると
+> a heuristic bot is really the one playing
 
-> 実際にはheuristic botがプレイしている
+is what you end up with.
 
-状態になってしまう。
-
-Jevのresponseが、
+If Jev's response is
 
 ```text
-期限内
-合法
-current decisionに対応
+within the deadline
+legal
+matched to the current decision
 ```
 
-していればそのまま採用する。
+accept it as is.
 
 ---
 
 # 44. Confidence
 
-Jevの `confidence` と `probabilities` はUIに表示する。
+Show Jev's `confidence` and `probabilities` in the UI.
 
-例:
+Example:
 
 ```text
 UP      ███░░░░░░░ 0.27
@@ -1406,25 +1356,23 @@ RIGHT   █░░░░░░░░░ 0.08
 confidence 0.76
 ```
 
-ただし初期実装では、
+The initial implementation does not overwrite a decision just because
 
 ```text
-confidenceが低い
+confidence is low
 ```
 
-という理由だけでdecisionを上書きしない。
-
-評価用データとして保存する。
+Store it as evaluation data.
 
 ---
 
-# 45. Recent decision history
+# 45. Recent Decision History
 
-Jev自体のprevious API callに依存しない。
+Do not depend on Jev's own previous API calls.
 
-必要な履歴はstateへ明示的に入れる。
+Put the history you need into the state explicitly.
 
-最大3件程度。
+Three entries at most.
 
 ```json
 [
@@ -1439,19 +1387,19 @@ Jev自体のprevious API callに依存しない。
 ]
 ```
 
-用途はループ回避。
+Its purpose is loop avoidance.
 
-巨大なhistoryは入れない。
+Never include a large history.
 
 ---
 
-# 46. Game rendering
+# 46. Game Rendering
 
-Canvasを使用する。
+Use Canvas.
 
-ReactでtileごとにDOM elementを生成しない。
+Do not create a DOM element per tile in React.
 
-Canvas描画内容:
+What the Canvas draws:
 
 ```text
 walls
@@ -1462,13 +1410,13 @@ ghosts
 frightened ghosts
 ```
 
-ゲームロジックとrenderを完全に分離する。
+Keep game logic and rendering fully separate.
 
 ---
 
-# 47. Visual design
+# 47. Visual Design
 
-画面構成:
+Screen layout:
 
 ```text
 ┌──────────────────────────────────────────────────────────┐
@@ -1490,15 +1438,15 @@ frightened ghosts
 └────────────────────────────┴─────────────────────────────┘
 ```
 
-dark UI を基本とする。
+Default to a dark UI.
 
-ゲームそのものが最も目立つようにする。
+The game itself must be the most prominent element.
 
 ---
 
 # 48. Controls
 
-最低限:
+At minimum:
 
 ```text
 Start
@@ -1515,21 +1463,19 @@ Speed:
 2×
 ```
 
-初期デモでは
+The first demo can default to
 
 ```text
 0.5×
 ```
 
-をdefaultにしてよい。
-
-安定動作を確認した後1×へ上げる。
+Move to 1× once it runs reliably.
 
 ---
 
-# 49. Manual mode
+# 49. Manual Mode
 
-keyboard:
+Drive it from the keyboard:
 
 ```text
 ArrowUp
@@ -1538,17 +1484,15 @@ ArrowLeft
 ArrowRight
 ```
 
-で操作可能にする。
+This is required to verify that the game engine itself works.
 
-これはゲームエンジン自体が正しく動いているか検証するために必須。
-
-**Jevを接続する前にManual modeを完成させること。**
+**Finish Manual mode before connecting Jev.**
 
 ---
 
 # 50. Telemetry
 
-すべてのJev decisionを保存する。
+Record every Jev decision.
 
 ```ts
 interface DecisionTelemetry {
@@ -1590,7 +1534,7 @@ interface DecisionTelemetry {
 
 # 51. Metrics
 
-リアルタイムで以下を集計する。
+Aggregate the following in real time.
 
 ```text
 Jev requests
@@ -1609,11 +1553,11 @@ Survival time
 
 ---
 
-# 52. Debug mode
+# 52. Debug Mode
 
-URLまたはUIでdebug表示をONにできるようにする。
+Make the debug overlay toggleable from the URL or the UI.
 
-表示:
+It shows:
 
 ```text
 tile coordinates
@@ -1625,7 +1569,7 @@ candidate metrics
 pending Jev request
 ```
 
-例:
+Example:
 
 ```text
 ?debug=1
@@ -1633,31 +1577,29 @@ pending Jev request
 
 ---
 
-# 53. Raw state viewer
+# 53. Raw State Viewer
 
-右パネルに、
+The right panel gets a
 
 ```text
 STATE
 ```
 
-タブを用意する。
+tab.
 
-Jevへ実際に送信したJSONを表示する。
+It shows the exact JSON that was sent to Jev.
 
-これはdemoとして非常に重要。
+This matters a lot for the demo.
 
-ユーザーが
+It lets the user check
 
-> Jevに何を見せているのか
-
-を確認できる。
+> what Jev is actually being shown
 
 ---
 
-# 54. API status
+# 54. API Status
 
-UI上に、
+Show values like these in the UI:
 
 ```text
 JEV ONLINE
@@ -1666,24 +1608,22 @@ JEV ERROR
 FALLBACK
 ```
 
-などを表示する。
+When no API key is configured,
 
-API key未設定の場合、
-
-ゲームをクラッシュさせない。
+the game must not crash.
 
 ```text
 JEV API key not configured.
 Manual mode is still available.
 ```
 
-と表示する。
+Display that instead.
 
 ---
 
-# 55. Error handling
+# 55. Error Handling
 
-以下はすべてゲーム継続可能にする。
+The game must keep running through all of these:
 
 ```text
 network error
@@ -1695,29 +1635,29 @@ timeout
 stale response
 ```
 
-Jev障害でgame loopをthrowしてはいけない。
+A Jev failure must never throw out of the game loop.
 
 ---
 
-# 56. API rate control
+# 56. API Rate Control
 
-同じdecisionに対して複数requestを送信しない。
+Never send more than one request for the same decision.
 
-さらに最低request intervalを設定する。
+Also set a minimum request interval.
 
-例:
+Example:
 
 ```ts
 MIN_JEV_INTERVAL_MS = 100;
 ```
 
-junction decision自体がそれより低頻度なので、通常は問題にならない。
+Junction decisions themselves are less frequent than that, so this is normally not an issue.
 
 ---
 
-# 57. Game restart
+# 57. Game Restart
 
-Restart時は以下を完全resetする。
+On restart, fully reset
 
 ```text
 engine
@@ -1731,45 +1671,45 @@ telemetry
 metrics
 ```
 
-かつ
+and
 
 ```ts
 gameEpoch++
 ```
 
-して古いAPI responseを無効化する。
+to invalidate old API responses.
 
 ---
 
-# 58. Deterministic simulation
+# 58. Deterministic Simulation
 
-ゲームseedを保持する。
+Keep the game seed.
 
-例:
+Example:
 
 ```text
 seed = 42
 ```
 
-UIから変更できるようにしてもよい。
+It may be changeable from the UI.
 
-同じseedなら、
+With the same seed,
 
-Jev decisionを固定してreplayした場合、
+replaying with fixed Jev decisions
 
-同じゲーム結果になるようにする。
+must produce the same game result.
 
 ---
 
 # 59. Replay
 
-余力があれば、
+If time allows, implement
 
 ```text
 telemetry export
 ```
 
-を実装する。
+Save
 
 ```json
 {
@@ -1778,17 +1718,15 @@ telemetry export
 }
 ```
 
-を保存。
+and make it possible to replay decisions without calling the API.
 
-APIを呼ばずdecisionをreplayできるようにする。
-
-これはdebugと比較実験に有用。
+This is useful for debugging and comparison experiments.
 
 ---
 
 # 60. Baselines
 
-Jev性能を評価するため、最終的に以下を用意する。
+To evaluate Jev's performance, eventually provide:
 
 ```text
 MANUAL
@@ -1797,41 +1735,39 @@ HEURISTIC
 JEV
 ```
 
-ただしUI上のメインはJEV。
+The main mode in the UI is JEV, though.
 
 ### RANDOM
 
-合法方向からseeded random。
+Seeded random over the legal directions.
 
 ### HEURISTIC
 
-candidate特徴から決定論的に選択。
+Deterministic selection from the candidate features.
 
 ### JEV
 
-Jev choice。
+Jev's choice.
 
-これによって、
+This lets you measure
 
 ```text
-Jevが本当にrandomより良いか
+whether Jev really beats random
 ```
-
-を測定できる。
 
 ---
 
-# 61. Evaluation protocol
+# 61. Evaluation Protocol
 
-同じmaze・同じghost RNG seedで複数試行する。
+Run multiple trials on the same maze and the same ghost RNG seed.
 
-例えば:
+For example, across
 
 ```text
 20 seeds
 ```
 
-について、
+compare
 
 ```text
 Random
@@ -1839,9 +1775,7 @@ Heuristic
 Jev
 ```
 
-を比較する。
-
-指標:
+Metrics:
 
 ```text
 score
@@ -1851,25 +1785,23 @@ levels completed
 ghosts eaten
 ```
 
-Jevが必ず勝つ必要はない。
+Jev does not have to win.
 
-目的は
+The goal is to show
 
-> Jevがstructured stateだけからリアルタイムゲームdecisionを行えること
-
-を示すこと。
+> that Jev can make real-time game decisions from structured state alone
 
 ---
 
-# 62. Test strategy
+# 62. Test Strategy
 
-Jev APIを接続する前にゲームを完全にテストする。
+Fully test the game before connecting the Jev API.
 
 ---
 
-# 63. Maze tests
+# 63. Maze Tests
 
-必須:
+Required:
 
 ```text
 maze dimensions valid
@@ -1880,39 +1812,39 @@ all walkable tiles connected
 
 ---
 
-# 64. Movement tests
+# 64. Movement Tests
 
-tiny test mazeを作る。
+Build a tiny test maze.
 
-確認:
+Verify:
 
 ```text
-wallを通れない
-corridorを進める
-junctionでturnできる
-illegal turnできない
-reverseできる
+cannot pass through walls
+moves along corridors
+can turn at junctions
+cannot make an illegal turn
+can reverse
 ```
 
 ---
 
-# 65. Pellet tests
+# 65. Pellet Tests
 
-確認:
+Verify:
 
 ```text
-pellet取得
-score増加
-pellet消滅
-power pellet取得
-frightened mode開始
+pellet collected
+score increases
+pellet disappears
+power pellet collected
+frightened mode starts
 ```
 
 ---
 
-# 66. Collision tests
+# 66. Collision Tests
 
-確認:
+Verify:
 
 ```text
 normal ghost collision → life loss
@@ -1921,32 +1853,30 @@ frightened ghost collision → ghost eaten
 
 ---
 
-# 67. Pathfinding tests
+# 67. Pathfinding Tests
 
-人工mazeで正解距離が分かるケースを使用。
+Use a hand-made maze whose true distances are known.
 
 ```text
 A...B
 ```
 
-など。
+and so on.
 
-BFS距離を直接assertする。
+Assert the BFS distance directly.
 
 ---
 
-# 68. Candidate analysis tests
+# 68. Candidate Analysis Tests
 
-例えば:
+For example, build a tiny maze where
 
 ```text
-ghostがRIGHT側1tile
-LEFT側にpellet多数
+a ghost is 1 tile to the RIGHT
+many pellets on the LEFT
 ```
 
-というtiny mazeを作る。
-
-期待:
+Verify:
 
 ```text
 RIGHT.nearestDangerousGhostDistance
@@ -1954,31 +1884,27 @@ RIGHT.nearestDangerousGhostDistance
 LEFT.nearestDangerousGhostDistance
 ```
 
-を確認。
-
-ここでは、
+Here, do not assert
 
 ```text
-LEFTを選ぶべき
+LEFT should be picked
 ```
 
-とはassertしない。
-
-analysis layerは事実だけを返すため。
+The analysis layer returns facts only.
 
 ---
 
-# 69. Controller tests
+# 69. Controller Tests
 
-fake Jev clientを使用する。
+Use a fake Jev client.
 
 ```ts
 FakeJevClient
 ```
 
-を作る。
+Build it in the test suite.
 
-以下をテスト:
+Test the following:
 
 ### normal
 
@@ -1993,7 +1919,7 @@ request
 
 ```text
 request
-→ junction通過
+→ Pac-Man passes the junction
 → response
 → ignored
 ```
@@ -2019,29 +1945,29 @@ request throws
 
 # 70. Mock Jev
 
-実APIがなくても全体を開発できるよう、
+You may support
 
 ```env
 JEV_MOCK=true
 ```
 
-をサポートしてもよい。
+so the whole app can be developed without the real API.
 
-mockは例えば、
+The mock returns, for example,
 
 ```text
 first legal direction
 ```
 
-またはseeded randomを返す。
+or a seeded random choice.
 
-UI・controller・telemetryまでAPIキーなしで確認可能にする。
+This makes the UI, the controller, and telemetry verifiable without an API key.
 
 ---
 
-# 71. Integration test
+# 71. Integration Test
 
-fake server latencyを設定可能にする。
+Make the fake server latency configurable.
 
 ```text
 0 ms
@@ -2051,40 +1977,38 @@ fake server latencyを設定可能にする。
 1500 ms
 ```
 
-すべてでゲームがクラッシュしないこと。
+The game must not crash at any of them.
 
-特に1500ms responseはstaleとして安全に破棄できること。
+In particular, a 1500 ms response must be safely discarded as stale.
 
 ---
 
-# 72. Stress test
+# 72. Stress Test
 
-seeded random decisionで最低、
+With seeded random decisions, run at least
 
 ```text
 10,000 simulation ticks
 ```
 
-走らせる。
-
-確認:
+Verify:
 
 ```text
-NaN coordinatesなし
-wall penetrationなし
-invalid directionなし
-unhandled exceptionなし
+no NaN coordinates
+no wall penetration
+no invalid directions
+no unhandled exceptions
 ```
 
 ---
 
-# 73. 実装順序
+# 73. Implementation Order
 
-以下の順番を厳守する。
+Follow this order strictly.
 
-## Phase 1 — Project bootstrap
+## Phase 1 — Project Bootstrap
 
-実装:
+Implement:
 
 ```text
 Next.js
@@ -2093,7 +2017,7 @@ Canvas
 Vitest
 ```
 
-確認:
+Verify:
 
 ```bash
 npm run dev
@@ -2101,13 +2025,13 @@ npm test
 npm run build
 ```
 
-すべて成功。
+All must pass.
 
 ---
 
 ## Phase 2 — Maze + Manual Pac-Man
 
-実装:
+Implement:
 
 ```text
 maze
@@ -2117,15 +2041,15 @@ manual controls
 render
 ```
 
-この時点ではGhostなし。
+No ghosts at this stage.
 
-Manualでmaze全体を移動できること。
+Pac-Man must be able to move through the whole maze manually.
 
 ---
 
 ## Phase 3 — Ghosts
 
-実装:
+Implement:
 
 ```text
 ghost movement
@@ -2136,15 +2060,15 @@ collisions
 lives
 ```
 
-Manual modeで普通のPac-Manゲームとして遊べる状態にする。
+At this point Manual mode must play like a normal Pac-Man game.
 
-**ここまでJevを入れない。**
+**Do not add Jev yet.**
 
 ---
 
-## Phase 4 — Path analysis
+## Phase 4 — Path Analysis
 
-実装:
+Implement:
 
 ```text
 BFS
@@ -2153,21 +2077,21 @@ next junction prediction
 candidate analysis
 ```
 
-debug modeでcandidate情報を画面表示する。
+Show candidate information on screen in debug mode.
 
 ---
 
-## Phase 5 — Fake agent
+## Phase 5 — Fake Agent
 
-Jevの代わりに、
+Wire up a
 
 ```text
 FakeDecisionProvider
 ```
 
-を接続。
+in place of Jev.
 
-architecture:
+The architecture:
 
 ```ts
 interface DecisionProvider {
@@ -2177,13 +2101,13 @@ interface DecisionProvider {
 }
 ```
 
-Jev固有コードをcontrollerへ直接書かない。
+Do not put Jev-specific code directly in the controller.
 
 ---
 
-## Phase 6 — Async controller
+## Phase 6 — Async Controller
 
-実装:
+Implement:
 
 ```text
 prefetch
@@ -2194,15 +2118,15 @@ stale protection
 fallback
 ```
 
-fake latencyで動作確認。
+Verify with fake latency.
 
 ---
 
-## Phase 7 — Jev integration
+## Phase 7 — Jev Integration
 
-`/api/decide` を追加。
+Add `/api/decide`.
 
-TypeSafe SDKを接続。
+Wire up the TypeSafe SDK.
 
 `.env.local`:
 
@@ -2210,13 +2134,13 @@ TypeSafe SDKを接続。
 TYPESAFE_API_KEY=...
 ```
 
-実APIからChoiceを取得。
+Fetch the Choice from the real API.
 
 ---
 
-## Phase 8 — Decision visualization
+## Phase 8 — Decision Visualization
 
-追加:
+Add:
 
 ```text
 probability bars
@@ -2231,7 +2155,7 @@ API status
 
 ## Phase 9 — Evaluation
 
-追加:
+Add:
 
 ```text
 Random
@@ -2246,46 +2170,46 @@ telemetry export
 
 # 74. Definition of Done — Functional
 
-以下をすべて満たしたら実装完了。
+The implementation is complete when all of this holds.
 
-- Webアプリが起動する
-- mazeが描画される
-- Manual modeでプレイできる
-- Ghostが正常に動く
-- Pellet / Power Pelletが機能する
-- Pac-Man死亡・残機が機能する
-- Jev modeを開始できる
-- junction前にJev requestが発生する
-- Jevが合法方向のみ返す
-- responseがPac-Manに適用される
-- game loopがAPI待ちで停止しない
-- stale responseが適用されない
-- API failure時もgameが継続する
-- decision probabilitiesが表示される
-- latencyが表示される
-- decision feedが表示される
-- restartが正常に動く
-- API keyがclientへ露出しない
-- testsが通る
-- production buildが通る
+- the web app starts
+- the maze is drawn
+- Manual mode is playable
+- ghosts move correctly
+- pellets / power pellets work
+- Pac-Man death and lives work
+- Jev mode can be started
+- a Jev request fires before the junction
+- Jev returns only legal directions
+- the response is applied to Pac-Man
+- the game loop never blocks waiting for the API
+- stale responses are never applied
+- the game continues after an API failure
+- decision probabilities are displayed
+- latency is displayed
+- the decision feed is displayed
+- restart works
+- the API key is never exposed to the client
+- tests pass
+- the production build passes
 
 ---
 
-# 75. Definition of Done — Jev integrity
+# 75. Definition of Done — Jev Integrity
 
-以下も必須。
+This is also required.
 
-Jevモード中、
+While Jev mode is running, if the
 
 ```text
-Jev responseが正常
+Jev response is valid
 ```
 
-なら、
+then
 
-**最終方向は必ずJevのChoiceを採用する。**
+**the final direction must be Jev's Choice.**
 
-コード側で、
+Never let the code overwrite it, as in
 
 ```text
 Jev said LEFT
@@ -2293,24 +2217,22 @@ but heuristic thinks RIGHT is better
 → RIGHT
 ```
 
-のような上書きをしない。
+Log every fallback that occurs.
 
-fallbackが発生した場合は必ずログへ残す。
+This keeps the claim
 
-これにより、
+> "Jev is playing Pac-Man"
 
-> 「JevがPac-Manをプレイしている」
-
-という主張と実装を一致させる。
+consistent with the implementation.
 
 ---
 
 # 76. Definition of Done — Robustness
 
-以下を手動確認。
+Verify all of these manually.
 
 ```text
-API keyなし
+no API key
 network offline
 API error
 very slow API
@@ -2320,13 +2242,13 @@ death during request
 speed change during request
 ```
 
-いずれでもアプリがクラッシュしない。
+The app must not crash in any of them.
 
 ---
 
 # 77. README
 
-READMEには必ず以下を含める。
+The README must include:
 
 ```text
 What is this?
@@ -2345,9 +2267,9 @@ Limitations
 
 ---
 
-# 78. READMEで明記すること
+# 78. What the README Must State
 
-Jevはゲームから学習しているわけではない。
+Jev does not learn from the game.
 
 ```text
 No fine-tuning
@@ -2355,29 +2277,27 @@ No reinforcement learning
 No previous-game memory
 ```
 
-各decisionでは、
+For each decision it receives
 
 ```text
 current structured game state
 ```
 
-を受け取り、その場で方向を選択する。
+and picks a direction on the spot.
 
-つまりこのプロジェクトは、
+In short, this project is a demo of
 
 > **zero-shot real-time control with a System One decision model**
 
-のdemoである。
-
 ---
 
-# 79. 最初から実装しないもの
+# 79. Out of Scope from the Start
 
-MVPでは以下を実装しない。
+The MVP does not implement any of the following.
 
 ```text
-画像認識
-スクリーンショット入力
+image recognition
+screenshot input
 OCR
 Pac-Man emulator
 original ROM
@@ -2391,13 +2311,13 @@ multiplayer
 mobile app
 ```
 
-不要な複雑性を入れない。
+Do not add unnecessary complexity.
 
 ---
 
-# 80. 最重要の実装原則
+# 80. Core Implementation Principles
 
-実装中に迷った場合は以下を優先する。
+When in doubt during implementation, prefer these:
 
 ```text
 1. Game engine is deterministic.
@@ -2414,7 +2334,7 @@ mobile app
 
 ---
 
-# 81. 最終アーキテクチャ
+# 81. Final Architecture
 
 ```text
                          ┌─────────────────┐
@@ -2469,27 +2389,25 @@ mobile app
 
 ---
 
-# 82. 最終的に見せたいデモ
+# 82. The Demo We Want to Show
 
-ユーザーがページを開く。
+The user opens the page and clicks
 
 ```text
 START JEV
 ```
 
-を押す。
+Pac-Man starts moving on its own.
 
-Pac-Manが自動で動き始める。
+It approaches a junction.
 
-junctionへ近づく。
-
-右パネル:
+The right panel shows:
 
 ```text
 ASKING JEV...
 ```
 
-約100～数百ms後:
+About 100 to a few hundred ms later:
 
 ```text
 JEV #18
@@ -2502,35 +2420,31 @@ Confidence 0.88
 Latency   117ms
 ```
 
-Pac-Manは停止せずjunctionへ到達し、
+Pac-Man reaches the junction without stopping and turns
 
 ```text
 LEFT
 ```
 
-へ曲がる。
+When a ghost closes in, Jev picks the escape direction.
 
-Ghostが接近するとJevが逃げる方向を選ぶ。
-
-Power Pelletを取得すると、
+After a power pellet, it sometimes chases ghosts based on
 
 ```text
 nearestFrightenedGhostDistance
 ```
 
-を見てGhostを追跡する場合もある。
+Every decision streams down the right panel.
 
-すべてのdecisionが右側へ流れる。
-
-これがこのプロジェクトの完成形とする。
+This is the finished form of this project.
 
 ---
 
-# 83. Coding Agentへの最終指示
+# 83. Final Instructions for the Coding Agent
 
-この計画を実装する際は、一度に全機能を作らないこと。
+Do not build every feature at once when implementing this plan.
 
-必ず、
+Always proceed in this order:
 
 ```text
 Phase 1
@@ -2547,25 +2461,21 @@ test
 ...
 ```
 
-の順に進める。
-
-各Phase終了時に、
+At the end of each phase, run
 
 ```bash
 npm test
 npm run build
 ```
 
-を実行する。
+Do not move on to the next phase while the existing code is broken.
 
-既存コードが動かない状態のまま次Phaseへ進まない。
+When something is ambiguous, do not add new machinery.
 
-曖昧な箇所があった場合、新しい複雑な仕組みを追加するのではなく、
+**Pick the simplest implementation defined in this document.**
 
-**この文書で定義された最も単純な実装を選択すること。**
+The top priority is
 
-最優先事項は、
+> **keeping a stable Pac-Man game engine and Jev's decision-making cleanly separated, and making it observable that Jev is actually controlling the game.**
 
-> **「Pac-Manの安定したゲームエンジン」と「Jevの意思決定」を明確に分離し、Jevが実際にゲームを操作していることを観察可能にすること。**
-
-である。
+Everything else is secondary to that.
