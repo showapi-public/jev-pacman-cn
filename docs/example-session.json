@@ -1,0 +1,812 @@
+{
+  "seed": 42,
+  "gameSeconds": 45,
+  "playTimeMs": 43783.33333333269,
+  "status": "PLAYING",
+  "score": 2320,
+  "pelletsEaten": 197,
+  "ghostsEaten": 1,
+  "lives": 2,
+  "level": 1,
+  "metrics": {
+    "requests": 45,
+    "applied": 40,
+    "fallbacks": 4,
+    "stale": 4,
+    "timeouts": 0,
+    "errors": 0,
+    "invalid": 0,
+    "pending": 1,
+    "meanLatencyMs": 251.20309106818198,
+    "p50LatencyMs": 228.08862300000146,
+    "p95LatencyMs": 513.795487,
+    "appliedRate": 0.8888888888888888,
+    "score": 2320,
+    "pelletsEaten": 197,
+    "ghostsEaten": 1,
+    "survivalMs": 43783.33333333269,
+    "level": 1,
+    "lives": 2,
+    "pelletsRemaining": 43
+  },
+  "decisions": [
+    {
+      "decisionId": "d1",
+      "junction": "(12,23)",
+      "legal": "UP/LEFT",
+      "choice": "LEFT",
+      "applied": null,
+      "source": "JEV",
+      "status": "STALE",
+      "latencyMs": 593,
+      "confidence": 0.98,
+      "probabilities": {
+        "LEFT": 0.99,
+        "UP": 0.01
+      },
+      "note": "junction reached before the answer arrived"
+    },
+    {
+      "decisionId": "f2",
+      "junction": "(12,23)",
+      "legal": "UP/LEFT",
+      "choice": "LEFT",
+      "applied": "LEFT",
+      "source": "FALLBACK",
+      "status": "APPLIED",
+      "latencyMs": null,
+      "confidence": null,
+      "probabilities": {},
+      "note": "keep heading"
+    },
+    {
+      "decisionId": "d3",
+      "junction": "(9,23)",
+      "legal": "LEFT/DOWN",
+      "choice": "LEFT",
+      "applied": null,
+      "source": "JEV",
+      "status": "STALE",
+      "latencyMs": 514,
+      "confidence": 0.99,
+      "probabilities": {
+        "DOWN": 0,
+        "LEFT": 1
+      },
+      "note": "junction reached before the answer arrived"
+    },
+    {
+      "decisionId": "f4",
+      "junction": "(9,23)",
+      "legal": "LEFT/DOWN",
+      "choice": "LEFT",
+      "applied": "LEFT",
+      "source": "FALLBACK",
+      "status": "APPLIED",
+      "latencyMs": null,
+      "confidence": null,
+      "probabilities": {},
+      "note": "keep heading"
+    },
+    {
+      "decisionId": "d5",
+      "junction": "(6,23)",
+      "legal": "UP/DOWN",
+      "choice": "UP",
+      "applied": "UP",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 197,
+      "confidence": 0.68,
+      "probabilities": {
+        "DOWN": 0.16,
+        "UP": 0.84
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d6",
+      "junction": "(6,20)",
+      "legal": "UP/LEFT/RIGHT",
+      "choice": "UP",
+      "applied": "UP",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 283,
+      "confidence": 0.66,
+      "probabilities": {
+        "LEFT": 0.21,
+        "UP": 0.78,
+        "RIGHT": 0.01
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d7",
+      "junction": "(6,8)",
+      "legal": "UP/LEFT",
+      "choice": "UP",
+      "applied": "UP",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 196,
+      "confidence": 0.93,
+      "probabilities": {
+        "UP": 0.96,
+        "LEFT": 0.04
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d8",
+      "junction": "(6,5)",
+      "legal": "UP/LEFT/RIGHT",
+      "choice": "UP",
+      "applied": "UP",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 189,
+      "confidence": 0.67,
+      "probabilities": {
+        "RIGHT": 0.05,
+        "LEFT": 0.17,
+        "UP": 0.78
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d9",
+      "junction": "(6,1)",
+      "legal": "LEFT/RIGHT",
+      "choice": "RIGHT",
+      "applied": "RIGHT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 246,
+      "confidence": 0.48,
+      "probabilities": {
+        "RIGHT": 0.74,
+        "LEFT": 0.26
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d10",
+      "junction": "(12,5)",
+      "legal": "LEFT/RIGHT",
+      "choice": "RIGHT",
+      "applied": "RIGHT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 331,
+      "confidence": 0.25,
+      "probabilities": {
+        "RIGHT": 0.63,
+        "LEFT": 0.37
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d11",
+      "junction": "(15,5)",
+      "legal": "UP/RIGHT",
+      "choice": "RIGHT",
+      "applied": "RIGHT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 223,
+      "confidence": 0.57,
+      "probabilities": {
+        "RIGHT": 0.79,
+        "UP": 0.21
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d12",
+      "junction": "(18,5)",
+      "legal": "DOWN/RIGHT",
+      "choice": "RIGHT",
+      "applied": "RIGHT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 286,
+      "confidence": 0.6,
+      "probabilities": {
+        "RIGHT": 0.8,
+        "DOWN": 0.2
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d13",
+      "junction": "(21,5)",
+      "legal": "UP/DOWN/RIGHT",
+      "choice": "RIGHT",
+      "applied": "RIGHT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 241,
+      "confidence": 0.9,
+      "probabilities": {
+        "RIGHT": 0.93,
+        "UP": 0.05,
+        "DOWN": 0.02
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d14",
+      "junction": "(26,5)",
+      "legal": "UP/DOWN",
+      "choice": "UP",
+      "applied": "UP",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 213,
+      "confidence": 0.98,
+      "probabilities": {
+        "DOWN": 0.01,
+        "UP": 0.99
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d15",
+      "junction": "(21,1)",
+      "legal": "LEFT/DOWN",
+      "choice": "LEFT",
+      "applied": "LEFT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 318,
+      "confidence": 0.39,
+      "probabilities": {
+        "LEFT": 0.69,
+        "DOWN": 0.31
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d16",
+      "junction": "(15,5)",
+      "legal": "LEFT/RIGHT",
+      "choice": "RIGHT",
+      "applied": "RIGHT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 255,
+      "confidence": 0.32,
+      "probabilities": {
+        "LEFT": 0.34,
+        "RIGHT": 0.66
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d17",
+      "junction": "(18,5)",
+      "legal": "DOWN/RIGHT",
+      "choice": "DOWN",
+      "applied": "DOWN",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 229,
+      "confidence": 0.42,
+      "probabilities": {
+        "RIGHT": 0.29,
+        "DOWN": 0.71
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d18",
+      "junction": "(15,11)",
+      "legal": "LEFT/RIGHT",
+      "choice": "LEFT",
+      "applied": "LEFT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 242,
+      "confidence": 0.97,
+      "probabilities": {
+        "LEFT": 0.98,
+        "RIGHT": 0.02
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d19",
+      "junction": "(12,11)",
+      "legal": "UP/LEFT",
+      "choice": "UP",
+      "applied": "UP",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 228,
+      "confidence": 0.06,
+      "probabilities": {
+        "LEFT": 0.47,
+        "UP": 0.53
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d20",
+      "junction": "(9,5)",
+      "legal": "LEFT/RIGHT",
+      "choice": "LEFT",
+      "applied": "LEFT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 185,
+      "confidence": 0.75,
+      "probabilities": {
+        "LEFT": 0.87,
+        "RIGHT": 0.13
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d21",
+      "junction": "(6,5)",
+      "legal": "UP/LEFT/DOWN",
+      "choice": "LEFT",
+      "applied": "LEFT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 223,
+      "confidence": 0.99,
+      "probabilities": {
+        "LEFT": 0.99,
+        "UP": 0.01,
+        "DOWN": 0
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d22",
+      "junction": "(1,5)",
+      "legal": "UP/DOWN",
+      "choice": "UP",
+      "applied": "UP",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 220,
+      "confidence": 0.98,
+      "probabilities": {
+        "UP": 0.99,
+        "DOWN": 0.01
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d23",
+      "junction": "(6,1)",
+      "legal": "DOWN/RIGHT",
+      "choice": "DOWN",
+      "applied": "DOWN",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 266,
+      "confidence": 0.05,
+      "probabilities": {
+        "RIGHT": 0.47,
+        "DOWN": 0.53
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d24",
+      "junction": "(6,5)",
+      "legal": "LEFT/DOWN/RIGHT",
+      "choice": "DOWN",
+      "applied": "DOWN",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 232,
+      "confidence": 0.33,
+      "probabilities": {
+        "RIGHT": 0.28,
+        "DOWN": 0.56,
+        "LEFT": 0.16
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d25",
+      "junction": "(6,8)",
+      "legal": "LEFT/DOWN",
+      "choice": "LEFT",
+      "applied": "LEFT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 229,
+      "confidence": 0.41,
+      "probabilities": {
+        "LEFT": 0.71,
+        "DOWN": 0.29
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d26",
+      "junction": "(1,5)",
+      "legal": "UP/RIGHT",
+      "choice": "UP",
+      "applied": "UP",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 255,
+      "confidence": 0.44,
+      "probabilities": {
+        "UP": 0.72,
+        "RIGHT": 0.28
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d27",
+      "junction": "(6,1)",
+      "legal": "DOWN/RIGHT",
+      "choice": "DOWN",
+      "applied": "DOWN",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 218,
+      "confidence": 0.18,
+      "probabilities": {
+        "RIGHT": 0.41,
+        "DOWN": 0.59
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d28",
+      "junction": "(6,5)",
+      "legal": "LEFT/DOWN/RIGHT",
+      "choice": "DOWN",
+      "applied": "DOWN",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 245,
+      "confidence": 0.55,
+      "probabilities": {
+        "RIGHT": 0.23,
+        "LEFT": 0.07,
+        "DOWN": 0.7
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d29",
+      "junction": "(6,8)",
+      "legal": "LEFT/DOWN",
+      "choice": "DOWN",
+      "applied": "DOWN",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 187,
+      "confidence": 0.69,
+      "probabilities": {
+        "DOWN": 0.84,
+        "LEFT": 0.16
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d30",
+      "junction": "(12,23)",
+      "legal": "UP/LEFT",
+      "choice": "UP",
+      "applied": null,
+      "source": "JEV",
+      "status": "STALE",
+      "latencyMs": 184,
+      "confidence": 0.2,
+      "probabilities": {
+        "UP": 0.6,
+        "LEFT": 0.4
+      },
+      "note": "junction reached before the answer arrived"
+    },
+    {
+      "decisionId": "f31",
+      "junction": "(12,23)",
+      "legal": "UP/LEFT",
+      "choice": "LEFT",
+      "applied": "LEFT",
+      "source": "FALLBACK",
+      "status": "APPLIED",
+      "latencyMs": null,
+      "confidence": null,
+      "probabilities": {},
+      "note": "keep heading"
+    },
+    {
+      "decisionId": "d32",
+      "junction": "(9,23)",
+      "legal": "LEFT/DOWN",
+      "choice": "LEFT",
+      "applied": null,
+      "source": "JEV",
+      "status": "STALE",
+      "latencyMs": 535,
+      "confidence": 0.06,
+      "probabilities": {
+        "DOWN": 0.47,
+        "LEFT": 0.53
+      },
+      "note": "junction reached before the answer arrived"
+    },
+    {
+      "decisionId": "f33",
+      "junction": "(9,23)",
+      "legal": "LEFT/DOWN",
+      "choice": "LEFT",
+      "applied": "LEFT",
+      "source": "FALLBACK",
+      "status": "APPLIED",
+      "latencyMs": null,
+      "confidence": null,
+      "probabilities": {},
+      "note": "keep heading"
+    },
+    {
+      "decisionId": "d34",
+      "junction": "(6,23)",
+      "legal": "UP/DOWN",
+      "choice": "DOWN",
+      "applied": "DOWN",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 250,
+      "confidence": 0.81,
+      "probabilities": {
+        "UP": 0.1,
+        "DOWN": 0.9
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d35",
+      "junction": "(3,26)",
+      "legal": "UP/LEFT",
+      "choice": "LEFT",
+      "applied": "LEFT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 185,
+      "confidence": 0.69,
+      "probabilities": {
+        "UP": 0.15,
+        "LEFT": 0.85
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d36",
+      "junction": "(12,29)",
+      "legal": "UP/RIGHT",
+      "choice": "RIGHT",
+      "applied": "RIGHT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 192,
+      "confidence": 0.68,
+      "probabilities": {
+        "RIGHT": 0.84,
+        "UP": 0.16
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d37",
+      "junction": "(15,29)",
+      "legal": "UP/RIGHT",
+      "choice": "RIGHT",
+      "applied": "RIGHT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 224,
+      "confidence": 0.69,
+      "probabilities": {
+        "RIGHT": 0.84,
+        "UP": 0.16
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d38",
+      "junction": "(24,26)",
+      "legal": "UP/LEFT",
+      "choice": "UP",
+      "applied": "UP",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 191,
+      "confidence": 0.97,
+      "probabilities": {
+        "LEFT": 0.02,
+        "UP": 0.98
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d39",
+      "junction": "(21,20)",
+      "legal": "UP/LEFT/DOWN",
+      "choice": "LEFT",
+      "applied": "LEFT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 232,
+      "confidence": 0.76,
+      "probabilities": {
+        "UP": 0.03,
+        "DOWN": 0.13,
+        "LEFT": 0.84
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d40",
+      "junction": "(18,20)",
+      "legal": "UP/LEFT",
+      "choice": "LEFT",
+      "applied": "LEFT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 207,
+      "confidence": 0.74,
+      "probabilities": {
+        "UP": 0.13,
+        "LEFT": 0.87
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d41",
+      "junction": "(15,23)",
+      "legal": "LEFT/RIGHT",
+      "choice": "RIGHT",
+      "applied": "RIGHT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 180,
+      "confidence": 0.52,
+      "probabilities": {
+        "RIGHT": 0.76,
+        "LEFT": 0.24
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d42",
+      "junction": "(18,23)",
+      "legal": "DOWN/RIGHT",
+      "choice": "RIGHT",
+      "applied": "RIGHT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 257,
+      "confidence": 0.58,
+      "probabilities": {
+        "DOWN": 0.21,
+        "RIGHT": 0.79
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d43",
+      "junction": "(21,23)",
+      "legal": "UP/DOWN",
+      "choice": "UP",
+      "applied": "UP",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 193,
+      "confidence": 0.81,
+      "probabilities": {
+        "DOWN": 0.1,
+        "UP": 0.9
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d44",
+      "junction": "(21,20)",
+      "legal": "UP/LEFT/RIGHT",
+      "choice": "UP",
+      "applied": "UP",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 204,
+      "confidence": 0.99,
+      "probabilities": {
+        "UP": 1,
+        "LEFT": 0,
+        "RIGHT": 0
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d45",
+      "junction": "(21,8)",
+      "legal": "UP/RIGHT",
+      "choice": "UP",
+      "applied": "UP",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 222,
+      "confidence": 0.83,
+      "probabilities": {
+        "RIGHT": 0.09,
+        "UP": 0.91
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d46",
+      "junction": "(21,5)",
+      "legal": "UP/LEFT/RIGHT",
+      "choice": "UP",
+      "applied": "UP",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 295,
+      "confidence": 0.92,
+      "probabilities": {
+        "RIGHT": 0.04,
+        "LEFT": 0.02,
+        "UP": 0.94
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d47",
+      "junction": "(21,1)",
+      "legal": "LEFT/RIGHT",
+      "choice": "RIGHT",
+      "applied": "RIGHT",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 226,
+      "confidence": 0.44,
+      "probabilities": {
+        "RIGHT": 0.72,
+        "LEFT": 0.28
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d48",
+      "junction": "(26,5)",
+      "legal": "LEFT/DOWN",
+      "choice": "DOWN",
+      "applied": "DOWN",
+      "source": "JEV",
+      "status": "APPLIED",
+      "latencyMs": 233,
+      "confidence": 0.81,
+      "probabilities": {
+        "LEFT": 0.1,
+        "DOWN": 0.9
+      },
+      "note": null
+    },
+    {
+      "decisionId": "d49",
+      "junction": "(21,8)",
+      "legal": "UP/DOWN",
+      "choice": null,
+      "applied": null,
+      "source": "JEV",
+      "status": "PENDING",
+      "latencyMs": null,
+      "confidence": null,
+      "probabilities": {},
+      "note": null
+    }
+  ]
+}

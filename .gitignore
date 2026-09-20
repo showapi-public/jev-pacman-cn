@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+build/
+
+# Local secrets: the TypeSafe API key lives here and nowhere else.
+.env
+.env.*
+!.env.example
+
+*.tsbuildinfo
+next-env.d.ts
+coverage/
+.DS_Store
