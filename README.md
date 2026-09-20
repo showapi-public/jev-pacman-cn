@@ -163,6 +163,20 @@ error, invalid, timeout), a latency sweep (0 / 100 / 300 / 700 / 1600 ms), a 10,
 seeded random player, and two live tests that talk to TypeSafe — one that checks a single answer, and one that
 plays a full game and writes a session report.
 
+## Design
+
+The interface is a dark data tool: near-black canvas, surfaces stacked by
+luminance, hairline translucent borders, one chromatic chrome accent (indigo),
+and colour reserved for data — Pac-Man amber, the maze blue, the four ghosts.
+Every token and the colour assignment live in `docs/design-system.md`.
+
+Around that chrome the game is allowed to be a game: particles, score popups,
+trauma shake and hit-stop live in `lib/game/juice.ts`, and `lib/audio/sfx.ts`
+synthesizes every sound with Web Audio, so the app ships zero media assets.
+Everything respects `prefers-reduced-motion`, sound never plays without a gesture,
+and the optional CRT scanlines and the neon mode behind the Konami code
+(↑↑↓↓←→←→BA) are the cabinet's only jokes.
+
 ## Limitations
 
 - **The maze is ours.** Nothing is copied from the arcade original: no ROM, no sprites, no original maze data.

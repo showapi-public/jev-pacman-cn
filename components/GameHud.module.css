@@ -1,0 +1,128 @@
+/* ---------------------------------------------------------------------------
+   GameHud — the KPI strip under the canvas.
+
+   Six facts read as one instrument rather than six equal boxes: the score is
+   the master readout, pellets / ghosts eaten / survival are the running
+   totals, and lives / level close the row. The strip owns no surface of its
+   own — it sits directly under the panel's head, so the panel's background,
+   border and 12px radius are the ones that show; `border-radius: 0` lets the
+   panel clip the corners.
+--------------------------------------------------------------------------- */
+
+.hud-strip {
+  display: grid;
+  /* Lanes are sized by what they hold: score widest (the master readout),
+     pellets next because it carries a suffix, level one number wide. */
+  grid-template-columns:
+    minmax(0, 1.5fr) minmax(0, 0.95fr) minmax(0, 1.4fr)
+    minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 0.75fr);
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* Each cell carries its own padding, so the strip needs none of its own and
+   the first lane's 16px inset lines up with the panel gutter. */
+.hud-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-width: 0;
+  padding: var(--s-3) var(--s-4);
+}
+
+/* Hairline separators are drawn by a lane's leading edge: the grid's outer
+   edges stay clean and the first lane needs no border at all. */
+.hud-cell + .hud-cell {
+  border-left: 1px solid var(--divider);
+}
+
+/* `dd` and `dl` carry UA margins; the strip is flush with the panel. */
+.hud-value {
+  margin: 0;
+}
+
+/* The master readout: the score is the one number at KPI size. */
+.hud-score {
+  font-size: var(--fs-kpi);
+  letter-spacing: -0.02em;
+  /* The one number the cabinet is proud of: a soft amber phosphor. */
+  color: var(--pacman);
+  text-shadow: 0 0 18px rgba(255, 210, 63, 0.22);
+}
+
+/* Three 8px slots on a text-sized line, so the dots sit on the numerals' line
+   and the lives lane stays as tall as its neighbours. */
+.hud-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 1.5em;
+  font-family: var(--font-mono);
+  font-size: var(--fs-title);
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-life {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-pill);
+  flex: none;
+  transition: background-color var(--dur) var(--ease);
+}
+
+.hud-life[data-spent="false"] {
+  background-color: var(--pacman);
+}
+
+/* The ring is drawn inside the same 8px box, so a spent life never resizes
+   the row. */
+.hud-life[data-spent="true"] {
+  background-color: transparent;
+  border: 1px solid var(--border-strong);
+}
+
+/* Frightened ghosts are a state, not a score: violet, one step down in size. */
+.hud-frightened {
+  color: var(--ghost-frightened);
+  font-size: var(--fs-body);
+}
+
+/* Under ~720px the strip folds to 3 lanes, under ~480px to 2. Each fold resets
+   the leading edge of every lane that opens a row, so no hairline ever sits
+   against the strip's outer edge. */
+@media (max-width: 720px) {
+  .hud-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hud-cell:nth-child(3n + 1) {
+    border-left: 0;
+  }
+
+  .hud-cell:nth-child(n + 4) {
+    border-top: 1px solid var(--divider);
+  }
+}
+
+@media (max-width: 480px) {
+  .hud-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hud-cell {
+    padding: var(--s-3);
+  }
+
+  .hud-cell:nth-child(2n) {
+    border-left: 1px solid var(--divider);
+  }
+
+  .hud-cell:nth-child(2n + 1) {
+    border-left: 0;
+  }
+
+  .hud-cell:nth-child(n + 3) {
+    border-top: 1px solid var(--divider);
+  }
+}

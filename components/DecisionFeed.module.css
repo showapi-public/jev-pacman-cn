@@ -1,0 +1,126 @@
+/* ---------------------------------------------------------------------------
+   DecisionFeed — the body of the tabbed side panel, edge to edge.
+   Rows carry their own horizontal padding so the scroll area reaches the panel
+   border, and every column has a fixed track, so a number that ticks once a
+   second never nudges its neighbours.
+--------------------------------------------------------------------------- */
+
+.df-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 380px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.df-row {
+  display: grid;
+  /* id · direction · note · latency · status */
+  grid-template-columns: 40px 60px minmax(0, 1fr) 58px 92px;
+  gap: var(--s-2);
+  align-items: baseline;
+  padding: 7px var(--s-4);
+  border-bottom: 1px solid var(--divider);
+  font-size: var(--fs-micro);
+}
+
+/* The newest record is the one the controller is working on right now: one
+   luminance step above the panel. Elevation is never a shadow. */
+.df-row:first-child {
+  background: var(--bg-elevated);
+}
+
+.df-row:last-child {
+  border-bottom: 0;
+}
+
+.df-id {
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+.df-direction {
+  color: var(--text-primary);
+  font-size: var(--fs-body);
+  letter-spacing: 0.02em;
+}
+
+/* A choice that has not been applied yet reads one step quieter than the move
+   that actually happened; an unanswered record has neither. */
+.df-direction[data-kind="chosen"] {
+  color: var(--text-secondary);
+}
+
+.df-direction[data-kind="none"] {
+  color: var(--text-tertiary);
+}
+
+.df-note {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.df-source {
+  flex: none;
+  color: var(--text-tertiary);
+  font-weight: 510;
+  letter-spacing: 0.06em;
+}
+
+/* A fallback move is the controller admitting Jev did not answer: warn amber. */
+.df-source[data-fallback="true"] {
+  color: var(--status-warn);
+}
+
+/* Free text truncates in the middle, so the source and the share survive a
+   long note. */
+.df-noteText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.df-sep {
+  flex: none;
+  color: var(--text-tertiary);
+}
+
+.df-conf {
+  flex: none;
+  color: var(--text-tertiary);
+}
+
+.df-latency {
+  color: var(--text-tertiary);
+  text-align: right;
+}
+
+/* The pill is a fixed-width column, centred rather than baseline-aligned: its
+   first child is a dot, which has no baseline worth sharing. */
+.df-status {
+  align-self: center;
+  justify-self: end;
+}
+
+.df-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-5) var(--s-4);
+}
+
+.df-emptyLabel {
+  margin: 0;
+}
+
+.df-emptyHint {
+  margin: 0;
+  max-width: 44ch;
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+}

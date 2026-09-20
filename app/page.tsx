@@ -23,6 +23,7 @@ import type { DecisionProvider } from "@/lib/agent/types";
 import { createGame, pauseGame, requestDirection, resumeGame, startGame } from "@/lib/game/engine";
 import type { GameEvent, GameState } from "@/lib/game/types";
 import { createJevProvider } from "@/lib/jev/client";
+import { SOUND_STORAGE_KEY, SoundBoard } from "@/lib/audio/sfx";
 import {
   KEY_DIRECTIONS,
   describeEvent,
@@ -33,6 +34,34 @@ import {
 
 const INITIAL_SEED = 42;
 const EVENT_LOG_SIZE = 6;
+const CRT_STORAGE_KEY = "jev-pacman:crt";
+const KONAMI = [
+  "ArrowUp",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowLeft",
+  "ArrowRight",
+  "b",
+  "a",
+];
+
+const STATUS_TONE: Record<string, "live" | "busy" | "warn" | undefined> = {
+  PLAYING: "live",
+  PAUSED: "busy",
+  READY: "warn",
+  GAME_OVER: "warn",
+};
+
+const GHOST_LEGEND = [
+  { piece: "blinky", name: "Blinky" },
+  { piece: "pinky", name: "Pinky" },
+  { piece: "inky", name: "Inky" },
+  { piece: "clyde", name: "Clyde" },
+  { piece: "frightened", name: "Frightened" },
+] as const;
 
 export default function Page() {
   const providersRef = useRef<Record<PlayMode, DecisionProvider | null> | null>(null);
@@ -62,6 +91,20 @@ export default function Page() {
   const [debug, setDebug] = useState(false);
   const [tab, setTab] = useState<"DECISION" | "STATE">("DECISION");
   const [sideTab, setSideTab] = useState<"FEED" | "METRICS">("FEED");
+
+  /*
+   * Cabinet state. Sound starts on and is remembered; the switches below are the
+   * consent — nothing plays before the player presses Start.
+   */
+  const soundRef = useRef<SoundBoard | null>(null);
+  if (!soundRef.current) {
+    // The board starts unmuted but stays silent until a gesture unlocks it, and
+    // the stored preference is applied on mount (below).
+    soundRef.current = new SoundBoard({ muted: false });
+  }
+  const [soundOn, setSoundOn] = useState(true);
+  const [crtOn, setCrtOn] = useState(true);
+  const [neon, setNeon] = useState(false);
 
   const publish = useCallback(() => {
     const state = stateRef.current;
@@ -93,8 +136,38 @@ export default function Page() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("debug") === "1") setDebug(true);
+    if (window.localStorage.getItem(SOUND_STORAGE_KEY) === "off") {
+      setSoundOn(false);
+      soundRef.current?.setMuted(true);
+    }
+    if (window.localStorage.getItem(CRT_STORAGE_KEY) === "off") setCrtOn(false);
     publish();
   }, [publish]);
+
+  // The cabinet's easter egg: the old code, honoured. It changes nothing about
+  // how Pac-Man or Jev play — only the colours of the maze.
+  useEffect(() => {
+    let index = 0;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      if (key === KONAMI[index]) index += 1;
+      else index = key === KONAMI[0] ? 1 : 0;
+
+      if (index === KONAMI.length) {
+        index = 0;
+        setNeon((current) => {
+          const next = !current;
+          soundRef.current?.unlock();
+          if (next) soundRef.current?.play("level");
+          return next;
+        });
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     if (mode !== "MANUAL") return;
@@ -114,8 +187,31 @@ export default function Page() {
     if (!state) return;
     if (state.status === "PLAYING") pauseGame(state);
     else if (state.status === "PAUSED") resumeGame(state);
-    else startGame(state);
+    else {
+      // The click that starts the game is also what unlocks the audio context.
+      soundRef.current?.unlock();
+      if (soundOn) soundRef.current?.play("start");
+      startGame(state);
+    }
     publish();
+  };
+
+  const handleToggleSound = () => {
+    setSoundOn((current) => {
+      const next = !current;
+      soundRef.current?.setMuted(!next);
+      if (next) soundRef.current?.unlock();
+      window.localStorage.setItem(SOUND_STORAGE_KEY, next ? "on" : "off");
+      return next;
+    });
+  };
+
+  const handleToggleCrt = () => {
+    setCrtOn((current) => {
+      const next = !current;
+      window.localStorage.setItem(CRT_STORAGE_KEY, next ? "on" : "off");
+      return next;
+    });
   };
 
   const handleMode = (next: PlayMode) => {
@@ -171,39 +267,76 @@ export default function Page() {
 
   const snapshot = ui.controller;
   const latest = ui.feed[0] ?? null;
+  const pending = snapshot.telemetry.find((record) => record.status === "PENDING") ?? null;
 
   return (
     <div className="page">
+      <a className="skip-link" href="#stage">
+        Skip to the game
+      </a>
+
       <header className="header">
         <div className="brand">
-          <span className="brand-mark" />
-          <div>
-            <div className="brand-name">Jev plays Pac-Man</div>
-            <div className="brand-sub">
-              TypeSafe System One · structured state in, one legal direction out · no fine-tuning, no screenshots
-            </div>
+          <span className="brand-mark" aria-hidden="true" />
+          <div className="brand-text">
+            <h1 className="brand-name">Jev plays Pac-Man</h1>
+            <p className="brand-sub">
+              TypeSafe System One · structured state in, one legal direction out · no fine-tuning, no
+              screenshots
+            </p>
           </div>
         </div>
 
         <div className="header-right">
-          <span className="chip" data-tone={ui.status === "PLAYING" ? "live" : ui.status === "PAUSED" ? "warn" : undefined}>
-            <span className="dot" />
+          {neon ? (
+            <span className="chip" data-tone="busy" role="status">
+              <span className="dot" aria-hidden="true" />
+              neon mode
+            </span>
+          ) : null}
+          <span className="chip" data-tone={STATUS_TONE[ui.status]}>
+            <span className="dot" aria-hidden="true" />
             {ui.status.toLowerCase().replace("_", " ")}
           </span>
-          <span className="chip">seed {seed}</span>
-          <span className="chip">play time {formatMs(ui.playTimeMs)}</span>
+          <span className="chip">
+            seed <span className="mono">{seed}</span>
+          </span>
+          <span className="chip">
+            play time <span className="mono">{formatMs(ui.playTimeMs)}</span>
+          </span>
         </div>
       </header>
 
-      <div className="layout">
+      <main className="layout">
         <div className="stack">
-          <div className="panel">
+          <section className="panel" id="stage" aria-labelledby="maze-heading">
             <div className="panel-head">
-              <span>Game</span>
-              <span className="chip" data-tone={mode === "MANUAL" ? undefined : "live"}>
-                <span className="dot" />
-                {mode === "MANUAL" ? "arrow keys" : mode.toLowerCase()}
+              <h2 className="panel-title" id="maze-heading">
+                Maze
+              </h2>
+              <span
+                className="chip"
+                data-tone={mode !== "MANUAL" && ui.status === "PLAYING" ? "live" : undefined}
+              >
+                <span className="dot" aria-hidden="true" />
+                {mode === "MANUAL" ? "arrow keys" : `player ${mode.toLowerCase()}`}
               </span>
+              <button
+                type="button"
+                className="btn"
+                data-variant="primary"
+                data-size="sm"
+                onClick={handleStartPause}
+                title={
+                  ui.status === "PLAYING"
+                    ? "Pause the game"
+                    : ui.status === "PAUSED"
+                      ? "Resume the game"
+                      : "Start Jev playing"
+                }
+              >
+                {ui.status === "PLAYING" ? "Pause" : ui.status === "PAUSED" ? "Resume" : "Start"}
+              </button>
             </div>
             <PacmanCanvas
               stateRef={stateRef}
@@ -211,124 +344,199 @@ export default function Page() {
               mode={mode}
               speed={speed}
               debug={debug}
+              neon={neon}
+              crt={crtOn}
+              sound={soundRef.current}
+              attract={ui.status === "READY"}
               onSnapshot={publish}
               onEvents={onEvents}
             />
-          </div>
+            <div className="stage-legend">
+              <ul className="legend">
+                <li className="legend-item">
+                  <span className="legend-swatch" data-piece="pacman" aria-hidden="true" />
+                  Pac-Man
+                </li>
+                {GHOST_LEGEND.map((ghost) => (
+                  <li className="legend-item" key={ghost.piece}>
+                    <span className="legend-swatch" data-piece={ghost.piece} aria-hidden="true" />
+                    {ghost.name}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
 
-          <div className="panel">
+          <section className="panel" aria-label="Game totals">
             <GameHud ui={ui} />
-          </div>
+          </section>
 
-          <div className="panel">
+          <section className="panel" aria-label="Controls">
             <div className="panel-body tight">
               <Controls
                 mode={mode}
                 speed={speed}
                 seed={seed}
                 debug={debug}
+                soundOn={soundOn}
+                crtOn={crtOn}
                 status={ui.status}
                 onMode={handleMode}
                 onSpeed={setSpeed}
                 onSeed={handleSeed}
                 onToggleDebug={handleToggleDebug}
+                onToggleSound={handleToggleSound}
+                onToggleCrt={handleToggleCrt}
                 onStartPause={handleStartPause}
                 onRestart={() => restart(seed, mode)}
                 onExport={handleExport}
               />
             </div>
-          </div>
+          </section>
 
           {debug ? (
-            <div className="panel">
+            <section className="panel" aria-labelledby="debug-heading">
               <div className="panel-head">
-                <span>Debug</span>
-                <span className="muted" style={{ fontSize: 10.5 }}>?debug=1</span>
+                <h2 className="panel-title" id="debug-heading">
+                  Debug
+                </h2>
+                <span className="label">?debug=1</span>
               </div>
               <div className="panel-body">
-                <div className="event-log">
-                  <div>
-                    target junction{" "}
+                <dl className="debug-list">
+                  <dt className="label">Target junction</dt>
+                  <dd className="mono">
                     {snapshot.target
                       ? `(${snapshot.target.junction.x}, ${snapshot.target.junction.y}) · legal ${snapshot.target.legalDirections.join(" ")} · ${snapshot.target.tilesAway.toFixed(2)} tiles away`
                       : "none"}
-                  </div>
-                  <div>
-                    pending request{" "}
-                    {snapshot.telemetry.find((record) => record.status === "PENDING")
-                      ? `${snapshot.telemetry.find((record) => record.status === "PENDING")?.decisionId} (${snapshot.status})`
-                      : "none"}
-                  </div>
-                  <div>
-                    recent decisions{" "}
+                  </dd>
+                  <dt className="label">Pending request</dt>
+                  <dd className="mono">
+                    {pending ? `${pending.decisionId} (${snapshot.status})` : "none"}
+                  </dd>
+                  <dt className="label">Recent decisions</dt>
+                  <dd className="mono">
                     {snapshot.recentDecisions.length === 0
                       ? "none"
                       : snapshot.recentDecisions
                           .map((record) => `(${record.junction.x},${record.junction.y}) ${record.chosen}`)
                           .join(" → ")}
-                  </div>
-                  <div>epoch {snapshot.epoch} · tile {snapshot.target ? "overlay on canvas" : "—"}</div>
-                </div>
-                <div className="event-log" style={{ marginTop: 10, maxHeight: 140 }}>
-                  {ui.events.length === 0 ? <div>no events yet</div> : ui.events.map((line, index) => <div key={`${line}-${index}`}>{line}</div>)}
-                </div>
+                  </dd>
+                  <dt className="label">Epoch</dt>
+                  <dd className="mono">
+                    {snapshot.epoch} · tile overlay {snapshot.target ? "on" : "off"}
+                  </dd>
+                </dl>
+
+                <ol className="event-log" aria-label="Recent game events">
+                  {ui.events.length === 0 ? (
+                    <li className="event-log-row">No game events yet.</li>
+                  ) : (
+                    ui.events.map((line, index) => (
+                      <li className="event-log-row" key={`${line}-${index}`}>
+                        {line}
+                      </li>
+                    ))
+                  )}
+                </ol>
               </div>
-            </div>
+            </section>
           ) : null}
         </div>
 
         <div className="stack">
-          <div className="panel">
+          <section className="panel" aria-labelledby="decision-tab">
             <div className="panel-head">
-              <div className="tabs">
-                <button type="button" className="tab" data-active={tab === "DECISION"} onClick={() => setTab("DECISION")}>
+              <div className="tabs" role="tablist" aria-label="Decision view">
+                <button
+                  type="button"
+                  className="tab"
+                  role="tab"
+                  id="decision-tab"
+                  aria-selected={tab === "DECISION"}
+                  aria-controls="decision-panel"
+                  onClick={() => setTab("DECISION")}
+                >
                   Decision
                 </button>
-                <button type="button" className="tab" data-active={tab === "STATE"} onClick={() => setTab("STATE")}>
+                <button
+                  type="button"
+                  className="tab"
+                  role="tab"
+                  id="state-tab"
+                  aria-selected={tab === "STATE"}
+                  aria-controls="state-panel"
+                  onClick={() => setTab("STATE")}
+                >
                   State
                 </button>
               </div>
-              <span className="muted" style={{ fontSize: 10.5 }}>
-                {snapshot.lastObservation ? "live" : "idle"}
-              </span>
+              <span className="label">{snapshot.lastObservation ? "live" : "idle"}</span>
             </div>
 
             {tab === "DECISION" ? (
-              <DecisionPanel snapshot={snapshot} decision={latest} />
+              <div role="tabpanel" id="decision-panel" aria-labelledby="decision-tab">
+                <DecisionPanel snapshot={snapshot} decision={latest} />
+              </div>
             ) : (
-              <pre className="state-json">
-                {snapshot.lastObservation
-                  ? JSON.stringify(snapshot.lastObservation, null, 2)
-                  : "Nothing sent to Jev yet."}
-              </pre>
+              <div role="tabpanel" id="state-panel" aria-labelledby="state-tab">
+                <pre className="state-json" aria-label="Raw state sent to Jev">
+                  {snapshot.lastObservation
+                    ? JSON.stringify(snapshot.lastObservation, null, 2)
+                    : "Press Start — the first observation is sent three tiles before the first junction."}
+                </pre>
+              </div>
             )}
-          </div>
+          </section>
 
-          <div className="panel">
+          <section className="panel" aria-labelledby="feed-tab">
             <div className="panel-head">
-              <div className="tabs">
-                <button type="button" className="tab" data-active={sideTab === "FEED"} onClick={() => setSideTab("FEED")}>
+              <div className="tabs" role="tablist" aria-label="Session view">
+                <button
+                  type="button"
+                  className="tab"
+                  role="tab"
+                  id="feed-tab"
+                  aria-selected={sideTab === "FEED"}
+                  aria-controls="feed-panel"
+                  onClick={() => setSideTab("FEED")}
+                >
                   Decision feed
                 </button>
-                <button type="button" className="tab" data-active={sideTab === "METRICS"} onClick={() => setSideTab("METRICS")}>
+                <button
+                  type="button"
+                  className="tab"
+                  role="tab"
+                  id="metrics-tab"
+                  aria-selected={sideTab === "METRICS"}
+                  aria-controls="metrics-panel"
+                  onClick={() => setSideTab("METRICS")}
+                >
                   Metrics
                 </button>
               </div>
-              <span className="muted" style={{ fontSize: 10.5 }}>
-                {snapshot.telemetry.length} records
-              </span>
+              <span className="label">{snapshot.telemetry.length} records</span>
             </div>
-            {sideTab === "FEED" ? <DecisionFeed feed={ui.feed} /> : <MetricsPanel metrics={ui.metrics} />}
-          </div>
+            <div role="tabpanel" id={sideTab === "FEED" ? "feed-panel" : "metrics-panel"} aria-labelledby={sideTab === "FEED" ? "feed-tab" : "metrics-tab"}>
+              {sideTab === "FEED" ? <DecisionFeed feed={ui.feed} /> : <MetricsPanel metrics={ui.metrics} />}
+            </div>
+          </section>
         </div>
-      </div>
+      </main>
 
-      <div className="footer-note">
-        Pac-Man moves at a fixed 60 Hz; Jev is asked one question per junction, three tiles before Pac-Man
-        gets there, and only about the directions he may legally take. Answers that arrive late are thrown
-        away, and anything that is not Jev&apos;s answer is labelled <code>FALLBACK</code> in the feed.
-        {mode !== "MANUAL" ? ` Currently playing as ${mode.toLowerCase()}.` : " Manual mode: use the arrow keys."}
-      </div>
+      <footer className="footer-note">
+        <p>
+          Pac-Man moves at a fixed 60 Hz. Jev is asked one question per junction, three tiles before
+          Pac-Man gets there, and only about the directions he may legally take. Late answers are
+          thrown away, and anything that is not Jev&apos;s answer is labelled <code>FALLBACK</code> in
+          the feed.
+        </p>
+        <p>
+          {mode === "MANUAL"
+            ? "Playing as manual: use the arrow keys."
+            : `Playing as ${mode.toLowerCase()}. Press ?debug=1 for tile coordinates and the pending request.`}
+        </p>
+      </footer>
     </div>
   );
 }

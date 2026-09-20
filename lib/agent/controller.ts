@@ -239,6 +239,11 @@ export class AgentController {
     };
   }
 
+  /** True while a decision request is in flight: cheap enough to ask every frame. */
+  isRequesting(): boolean {
+    return this.pending !== null;
+  }
+
   /** Everything the debug overlay draws: read-only, no side effects. */
   debugInfo(state: GameState) {
     const target = this.target;
