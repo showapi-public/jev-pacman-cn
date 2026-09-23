@@ -33,6 +33,13 @@ import type { JuiceState } from "@/lib/game/juice";
 /** Never simulate more than this per frame: a hidden tab must not fast-forward. */
 const MAX_STEPS_PER_FRAME = 3;
 const PUBLISH_INTERVAL_MS = 100;
+/**
+ * The bitmap is rendered at this multiple of the displayed resolution, so the
+ * maze stays crisp when the board is given a tall viewport and the well scales
+ * it up. Drawing is done in maze pixels throughout — only the canvas transform
+ * changes, so nothing in lib/game has to know about it.
+ */
+const RENDER_SCALE = 2;
 
 export interface PacmanCanvasProps {
   stateRef: React.RefObject<GameState | null>;
@@ -72,8 +79,9 @@ export function PacmanCanvas(props: PacmanCanvasProps) {
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     const maze = propsRef.current.stateRef.current?.maze;
     if (!maze) return;
-    canvas.width = Math.round(maze.width * TILE * ratio);
-    canvas.height = Math.round(maze.height * TILE * ratio);
+    const pixels = ratio * RENDER_SCALE;
+    canvas.width = Math.round(maze.width * TILE * pixels);
+    canvas.height = Math.round(maze.height * TILE * pixels);
     const context = canvas.getContext("2d");
     if (!context) return;
 
@@ -122,7 +130,7 @@ export function PacmanCanvas(props: PacmanCanvasProps) {
 
       const width = state.maze.width * TILE;
       const height = state.maze.height * TILE;
-      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.setTransform(pixels, 0, 0, pixels, 0, 0);
       context.clearRect(0, 0, width, height);
       drawGame(context, state, {
         debug,
@@ -145,18 +153,30 @@ export function PacmanCanvas(props: PacmanCanvasProps) {
   }, []);
 
   return (
-    <div className="stage" data-crt={props.crt || undefined}>
+    <div
+      /* The well is the box that scales the maze to fit. Both of its tracks are
+         pinned to `minmax(0, 1fr)` on purpose: with the default `auto` row the
+         canvas' `height: 100%` would have no definite track to resolve against,
+         so the floor of `min-height: auto` would hand the height to the bitmap's
+         own aspect ratio (662x733 in a 320px well) and `overflow: hidden` would
+         slice the maze in half, top and bottom. A `1fr` row is always definite
+         once the well itself is, which is what makes `h-full` mean the well. */
+      className="screen-crt relative grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)] place-items-center overflow-hidden bg-well p-3"
+      data-crt={props.crt ? "true" : undefined}
+    >
       <canvas
         ref={canvasRef}
         role="img"
-        aria-label="吃豆人迷宫。实时得分、豆子与幽灵状态见迷宫下方的统计条。"
-        /* Intrinsic size is set here so the box has its final size before the
-           effect runs: the CSS caps it by height, and nothing shifts. */
+        aria-label="吃豆人迷宫。实时得分、豆子与幽灵状态见迷宫下方的参数栏。"
+        /* The bitmap carries the device-pixel scale; the box is the fitted area
+           and `object-contain` letterboxes the maze inside it, so the whole maze
+           is always visible whatever the well's proportions. */
         width={mazeWidth}
         height={mazeHeight}
+        className="block h-full w-full object-contain"
       />
       {props.attract ? (
-        <p className="attract attract-overlay">
+        <p className="attract absolute bottom-4 left-1/2 z-3 m-0 -translate-x-1/2 rounded-pill border border-pacman/40 bg-canvas/90 px-4 py-1.5 backdrop-blur-[2px] [text-shadow:0_0_12px_rgba(255,210,63,0.35)]">
           <span className="attract-coin" aria-hidden="true" />
           投入硬币 —— 按开始
         </p>

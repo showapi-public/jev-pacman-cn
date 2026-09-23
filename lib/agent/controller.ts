@@ -234,8 +234,16 @@ export class AgentController {
       lastResult: this.lastResult,
       lastError: this.lastError,
       apiKeyMissing: this.apiKeyMissing,
-      telemetry: this.telemetry,
-      recentDecisions: this.recentDecisions,
+      // Copies, not the live arrays. The controller appends to both in place and
+      // keeps mutating the records inside them as answers arrive, so handing out
+      // the live reference would freeze the array's identity for the whole
+      // session — and a useMemo keyed on it (the confidence series) would compute
+      // once, against an empty list, and never run again. Copying the array costs
+      // a few reference copies per snapshot and keeps such memos honest. Note the
+      // elements are still shared: the records themselves are mutated in place,
+      // which is fine for the panels because each snapshot is a fresh object.
+      telemetry: [...this.telemetry],
+      recentDecisions: [...this.recentDecisions],
     };
   }
 

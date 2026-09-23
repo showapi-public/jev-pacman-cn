@@ -170,10 +170,39 @@ export const STARTING_LIVES = 3;
 /** How many tiles before a junction the controller asks Jev for a decision. */
 export const DECISION_PREFETCH_TILES = 3;
 
+/**
+ * The deadline that actually decides a request, in milliseconds.
+ *
+ * It is a consequence of two other constants rather than a knob of its own: Jev
+ * is asked DECISION_PREFETCH_TILES before the junction, and Pac-Man closes that
+ * distance at PACMAN_SPEED_TILES_PER_SEC. Three tiles at six tiles a second is
+ * 500 ms. Past it the controller has already fallen back, and closes the record
+ * as STALE — the timeout below is a different thing and does not fire first.
+ *
+ * Measured, it falls *inside* the model's own latency distribution rather than
+ * clear of it, so the miss rate swings with the model's mood. Across three live
+ * games the mean sat between 460 and 645 ms per call (single calls 707–796 ms),
+ * and the share of requests never applied ranged from about a quarter to nearly
+ * three quarters with it. The deadline moves whenever either constant does.
+ */
+export const DECISION_DEADLINE_MS = (DECISION_PREFETCH_TILES / PACMAN_SPEED_TILES_PER_SEC) * 1000;
+
 /** Minimum spacing between two Jev requests. */
 export const MIN_JEV_INTERVAL_MS = 100;
 
-/** Client-side patience for one decision. Slower answers arrive too late to use. */
+/**
+ * How long the client keeps the request open before aborting it outright.
+ *
+ * This is NOT the decision deadline — that is DECISION_DEADLINE_MS, and it is
+ * shorter. This only bounds how long a socket is held, and is deliberately left
+ * past the deadline: an answer that missed the deadline is already unusable, but
+ * letting it land anyway means the record still carries its *measured* latency.
+ * Aborting at the deadline would turn every slow answer into a bare TIMEOUT with
+ * a null latency, hiding the very distribution that makes the miss rate legible.
+ *
+ * 1500 ms also stays the outer bound the integration test exercises: a response
+ * that slow must be discarded safely rather than crash the game.
+ */
 export const DECISION_TIMEOUT_MS = 1500;
 
 /* --------------------------------------------------------------- direction */

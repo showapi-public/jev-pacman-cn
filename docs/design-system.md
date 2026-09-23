@@ -1,100 +1,362 @@
-# Design system
+# 设计规范
 
-The UI is a dark, Linear-school data tool: near-black canvas, surfaces stacked by
-luminance, whisper-thin translucent borders, and exactly one chromatic chrome
-accent. Game colours are **data**, not chrome.
+这是一份可执行的规范：每一条都对应代码里的一个 token、一个组件或一条规则，改动前先改这里。
+配套文件是 `app/globals.css`（token 与 Tailwind 主题）和 `components/ui/`（组件层）。
 
-## Where things live
+---
 
-| Layer | File | Owns |
+## 1. 这个界面是什么
+
+一台**机台**加一块**仪表盘**。左侧是游戏本身，右侧是模型在这个游戏里做决策的全部证据。
+两条主线贯穿整个页面，任何不属于这两条线的信息都不占用版面：
+
+| 主题 | 位置 | 回答的问题 |
 | --- | --- | --- |
-| Tokens + reset + shell + primitives | `app/globals.css` | `:root` tokens, `body`, `.page`/`.header`/`.layout`/`.stack`, `.panel*`, `.label`/`.value`/`.mono`/`.muted`/`.chip`/`.dot`/`.banner`, `.btn`/`.segmented`/`.seed-input`, `.tabs`/`.tab`, `.legend*`, `kbd`, `.state-json`, `.event-log` |
-| One module per data panel | `components/*.module.css` | that panel's layout only, prefix per component (`dp-`, `df-`, `mp-`, `hud-`) |
+| **游戏画面与游戏参数** | 左栏 | 现在场上发生了什么，这一局的成绩如何 |
+| **Jev 决策可视化** | 右栏 | 它看到了什么、选了哪个方向、有多确定、值不值得信 |
 
-## Rules
+设计基调沿用原有的 Linear 系暗色数据工具语汇：近黑画布、按亮度分层的表面、发丝级半透明描边、
+**只有一个彩色界面强调色**（靛蓝）。游戏配色（吃豆人琥珀、迷宫蓝、四只幽灵）是**数据**，
+只出现在迷宫和表示「吃豆人本体」的数值上，绝不用于界面装饰。
 
-0. **The canvas is the one exception to rule 1**: `lib/game/render.ts` keeps its
-   colours as literals because a canvas cannot read CSS custom properties while
-   drawing. They mirror the `--pacman` / `--maze-wall` / `--pellet` /
-   `--ghost-*` tokens — change both together.
-1. **No raw colour values outside `app/globals.css`.** Always `var(--token)`.
-2. **11px is the floor** for text. Body is 13px, KPIs 19px, the one hero value 34px.
-3. Every number is `var(--font-mono)` + `font-variant-numeric: tabular-nums`, so
-   values that tick do not shift the layout.
-4. Semantic HTML first (`table`, `dl`, `ol`, `button`, `label`), ARIA only to fill
-   gaps. Interactive elements are real `<button>`s with a hover state and inherit
-   the global `:focus-visible` ring.
-5. Motion: transitions list exact properties (`background`, `color`, `transform`),
-   120–180ms, `transform`/`opacity` only, and `prefers-reduced-motion` is handled
-   globally — never `transition: all`.
-6. No emoji, no icon fonts, no drop shadows. Depth is one luminance step
-   (`--bg-panel` → `--bg-elevated`) plus a hairline border.
-7. Empty states name the next action ("Press Start — the first decision appears at
-   the first junction"), never "nothing here".
-8. Colour meaning is fixed: indigo = interactive chrome; emerald = applied/healthy;
-   amber = the agent is thinking (and Pac-Man himself); red = failure; violet =
-   frightened ghost; grey = idle/neutral.
+---
 
-## Tokens
+## 2. 布局规范
 
-Surfaces `--bg-canvas --bg-panel --bg-elevated --bg-inset --bg-hover --bg-active` ·
-text `--text-primary --text-secondary --text-tertiary --text-quaternary` (use
-tertiary at the smallest sizes: quaternary fails AA contrast on panels) ·
-structure `--border-subtle --border-standard --border-strong --divider` ·
-accent `--accent --accent-hover --accent-soft --accent-fg --focus-ring` ·
-status `--status-ok(-soft) --status-warn(-soft) --status-bad(-soft)` ·
-data `--pacman --maze-wall --ghost-blinky --ghost-pinky --ghost-inky --ghost-clyde
---ghost-frightened` · radii `--r-xs … --r-xl --r-pill` (outer radius = inner +
-padding) · spacing `--s-1 … --s-8` (8px rhythm) · type `--font-sans --font-mono
---fs-micro --fs-body --fs-title --fs-kpi --fs-hero` · motion `--dur-fast --dur --ease`.
+### 2.1 单屏应用壳
 
-## Colour assignment per panel
+页面本身**不滚动**。整页锁定 `100dvh`，只有面板内部滚动。
 
-| Element | Token |
-| --- | --- |
-| Selected direction, Pac-Man, lives | `--pacman` |
-| Other directions' bars | `--text-quaternary` on `--bg-inset` |
-| APPLIED / answer in hand | `--status-ok` |
-| ASKING JEV / fallback warning | `--status-warn` |
-| STALE / TIMEOUT / ERROR / INVALID | `--status-bad` |
-| Frightened ghosts | `--ghost-frightened` |
-| Anything clickable | `--accent` |
+```
+┌──────────────────────────────────────────────────────────────┐
+│ header  52px   品牌 · 状态 · 种子 · 时长 · 主操作(开始/暂停)      │
+├───────────────────────────────┬──────────────────────────────┤
+│ 左栏 minmax(0, 1.2fr)          │ 右栏 minmax(430px, 0.95fr)    │
+│  ├ 迷宫面板  flex-1            │  ├ 决策卡          固定        │
+│  │   ├ 面板头 36px             │  ├ 整局置信度图    固定 ~160px  │
+│  │   ├ 屏幕井  flex-1          │  ├──────────── 分隔 ────────   │
+│  │   └ 参数条  54px            │  └ Tabs 决策历史/指标/状态       │
+│  └ 操作面板  自适应高度         │      └ 唯一滚动区 flex-1        │
+└───────────────────────────────┴──────────────────────────────┘
+```
 
-## The playful layer
+- 栅格：`grid-cols-[minmax(0,1.2fr)_minmax(430px,0.95fr)]`，`gap-4`，外边距 `p-4`。
+- 固定壳生效条件：**宽 ≥ 900px 且高 ≥ 620px**。两者任一不满足时，壳退化成普通的整页滚动，
+  左右两栏改为上下堆叠 —— 任何时刻**全页只有一层滚动条**。
+- 高度阈值取 620 而不是整数 680：Chrome 自身要占掉约 87px，两个最常见的笔记本尺寸正好落在
+  **633px（1280×720）** 与 **661px（1366×768）**。阈值定在 680 会把这两种尺寸一起推到降级分支，
+  让单屏布局只剩下少数大屏用户能用到。
+- 620 这个数字不是拍脑袋：右栏的固定寄存器（面板头 36 + 决策卡 342 + 分隔线 1 + 标签条 36）
+  先吃掉 415px，剩下才是历史列表。620px 视口扣掉头部与内边距后仍能留出约 3 行，
+  这是「还值得看」的下限。
+- 每一列内部：`flex flex-col gap-4 min-h-0`，末位面板 `flex-1 min-h-0` 吃掉剩余高度。
+- 滚动容器一律加 `.scroll-area`（`overscroll-behavior: contain` + `scrollbar-gutter: stable`
+  滚动条占位，避免内容增减时横向跳动）。
 
-The app is a working arcade cabinet whose player happens to be a model. The chrome
-stays restrained (one accent, hairline borders, no decoration); the *game* is allowed
-to be loud. The delight thesis, in one sentence:
+### 2.2 只有一层滚动条（全局不变式）
 
-> The cabinet reacts to play — chomp, sparks, shake and a short synthesized voice —
-> and every wait is spent showing the decision being made, never blocking, never faking.
+**任何尺寸下，全页有且只有一层滚动条。** 这条不变式是布局的总纲，其他规则都从它推出来：
 
-Rules that keep it honest:
+- 壳锁定时，那一层是右栏的列表，页面自己没有滚动条；
+- 壳不锁定时，那一层是页面本身，面板内部的`.scroll-area`随内容长高、不自己滚。
 
-- **Sound is consensual.** Nothing plays before a user gesture (Start or the Sound
-  switch). The switch is always visible, remembers itself, and a browser that blocks
-  audio just gets a silent cabinet — no errors, no console noise.
-- **Motion only when invited.** `prefers-reduced-motion` removes shake, particles,
-  popups and confetti; the score flash and the decision panel keep working, so no
-  information is motion-only.
-- **Truthful waiting.** The pulsing ring on the maze appears only while a decision
-  request is genuinely in flight, at the junction being asked about. It is not a
-  progress bar and it never guesses.
-- **One system, not a grab bag.** Every effect lives in `lib/game/juice.ts` (particles,
-  popups, trauma shake, hit-stop, flash) and is triggered from engine events. Nothing
-  in `lib/game` knows about React; nothing in `components` decides game state.
-- **Canvas owns its palette.** `lib/game/render.ts` mirrors the CSS tokens as literals
-  and is the only file allowed to hard-code colour — the canvas cannot read CSS
-  variables at draw time.
-- **Discovery, not gating.** The Konami code (↑↑↓↓←→←→BA) turns on neon mode: a
-  hue-cycled maze and a badge, nothing else. No feature hides behind it.
+因此**不要给滚动容器只按宽度加 `max-height` 上限**。`max-[900px]:max-h-*` 这类写法会造成
+「页面在滚 + 容器在滚」的两层并存 —— 那个写法已经删掉了。原来的双滚动条不是靠隐藏滚动条解决的，
+而是靠**让每个滚动容器都有确定的高度**：右栏是固定寄存器 + 一个 `flex-1` 列表，
+展开「推理输入」时列表变矮，而不是页面变长。
 
-## Verification
+### 2.3 渲染井（迷宫画布）
+
+迷宫井（`.screen-crt`）是唯一需要缩放的盒子，它的两条网格轨道都必须是
+`minmax(0, 1fr)`：
+
+```
+.screen-crt { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0,1fr); }
+```
+
+原因值得记住：`<canvas>` 是替换元素，自带由 `width`/`height` 属性决定的长宽比。如果那一行是默认的
+`auto`，画布上的 `height: 100%` 就**没有确定的轨道可以解析**，于是 `min-height: auto` 把高度交给
+位图自身的比例（井是 662×320 时画布算成 662×733），再被 `overflow: hidden` 裁掉顶部和底部 ——
+只剩中间 45% 的迷宫可见。
+
+固定成 `1fr` 后轨道必定确定，`h-full` 才真的等于井高，配合 `object-contain` 把整张迷宫完整地
+letterbox 在井里。**验收条件**：任意尺寸下
+`画布可见高度 ÷ 画布自身高度 === 1`。
+
+### 2.4 密度
+
+8px 节奏（Tailwind 默认 `--spacing: 0.25rem` 正好等于原 `--s-1…--s-8`）。
+面板内边距 `p-3`（12px），面板头高 36px，控制条行高 28px。
+**11px 是文字下限**，只用于微标签与 num 数值。
+
+---
+
+## 3. 技术栈与文件地图
+
+| 层 | 技术 | 文件 |
+| --- | --- | --- |
+| 设计令牌 | CSS 自定义属性 | `app/globals.css` 的 `:root` |
+| 工具类 | **Tailwind v4**（`@theme inline` 把令牌映射成 `bg-panel` / `text-fg-3` / `text-micro`） | `app/globals.css`、`postcss.config.mjs` |
+| 组件层 | **shadcn 风格的本地组件**（Radix 原语 + CVA + `cn()`） | `components/ui/*` |
+| 图标 | **Phosphor**（`weight="bold"` 用于控制件，`regular` 用于装饰） | 各组件内按需导入 |
+| 图表 | **Recharts 3**，`next/dynamic` + `ssr: false` 按需加载 | `components/charts/*` |
+
+`components/ui/` 的 9 个原语：
+`button`（primary/secondary/ghost/segmented/segmentedAccent × sm/md/icon）、`chip`（6 种语义色）、
+`panel`（Panel/PanelHeader/PanelTitle/PanelActions/PanelBody/PanelScroll/PanelDivider）、
+`tabs`、`switch`、`segmented`、`collapsible`、`dialog`、`tooltip`。
+
+**新代码一律用工具类 + 这 9 个原语**；只有画布伪元素和关键帧动画留在
+`@layer components` 里（`.screen-crt`、`.attract`、`.anim-*`）。
+
+---
+
+## 4. 色彩规范
+
+### 4.1 三层语义
+
+```
+表面   --bg-canvas → --bg-panel → --bg-elevated        （亮度分层，永不用阴影）
+        --bg-inset / --bg-well                          （凹槽：表格、屏幕井）
+        --bg-hover / --bg-active                        （交互态）
+文字   --text-primary → secondary → tertiary → quaternary
+结构   --border-subtle → standard → strong，--divider
+```
+
+`--text-quaternary` 在面板底色上不满足 AA，**仅用于不可点、次要到可忽略的数值**。
+
+### 4.2 颜色含义是固定的
+
+| 语义 | Token | 用在哪 |
+| --- | --- | --- |
+| 界面强调 / 可点击 | `--accent` `#7170ff` | 主按钮、选中态、图表主序列 |
+| 已执行 / 健康 | `--status-ok` | 已执行胶囊、执行率条 |
+| **吃豆人本体 / 被选中的方向** | `--pacman` `#ffd23f` | 得分、生命点、方向十字选中键、概率条选中行 |
+| 询问中 / 兜底 | `--status-warn` | 状态胶囊、兜底箭头与胶囊 |
+| 过期 / 超时 / 错误 | `--status-bad` | 失败胶囊 |
+| 受惊幽灵 | `--ghost-frightened` | 迷宫数据 + 参数条 |
+
+**颜色永远不是唯一信号**：方向十字同时用底框有无、箭头粗细、中心朝向针来表达；
+状态胶囊同时写中文。
+
+---
+
+## 5. 字体与数字
+
+- 字体栈 Latin 优先、简中族在日文族**之前**（`Noto Sans JP` / `Hiragino Kaku Gothic` 含汉字字形，
+  排在前面会抢走中文字形）。画布 `CANVAS_FONT_STACK` 同源。
+- 字号阶梯：`--fs-micro 11` / `--fs-body 13` / `--fs-title 15` / `--fs-kpi 19` / `--fs-hero 34`，
+  对应工具类 `text-micro` / `text-body` / `text-title` / `text-kpi`。
+- **每一个数字都是 `.num`**（JetBrains Mono + `tabular-nums`）。数值每秒跳动十次，等宽字形
+  是它不推挤邻居的唯一保证。
+- **不用 `text-transform: uppercase`**：界面说中文，大写对 CJK 无意义，而拉丁微标签需要的大字距
+  在中文里读作裂缝。需要全大写的拉丁标记（`FALLBACK`）在源码里直接写大写。
+
+---
+
+## 6. 组件规范
+
+### 6.1 方向十字 `DirectionCompass`
+
+把「方向」这个最核心的输出**只用一个形状表达**，而不是一句散文。
+
+```
+       ┌────┐
+       │ ↑  │       有底框 + 亮箭头 = 可通行
+┌────┐ ├────┤ ┌╌╌╌╌┐
+│ ←  │ │ ●  │ ╎ →  ╎   暗淡无框 = 走不通
+└────┘ ├────┤ └╌╌╌╌┘
+       │ ↓  │       中心圆点 + 朝向针 = 吃豆人当前朝向
+       └────┘
+```
+
+- 键位 52×52，圆角 `rounded-lg`，间距 6px。
+- 选中键：琥珀描边 + `bg-pacman/15` + 粗体箭头；**兜底来的选择改画警示黄**。
+- 每把键底部一条 3px 概率细条，宽度即概率 —— 不读数字也能看出分布形状。
+- 交互态：有 `onPick` 时是 `<button aria-pressed>`（手动模式下即转向键）；否则整体是
+  `role="img"` + 一句话描述，**不给屏幕阅读器读一堆无意义按钮**。
+- 提问期间中心点缓慢呼吸（1.6s），这是「真的在等」的诚实表达。
+
+### 6.2 概率阶梯 `ProbabilityBars`
+
+一行一个合法方向，**按概率降序**排列（形状优先于固定顺序），选中行用琥珀色的条与字。
+可点：点击即切换十字与「推理输入」表的高亮列，三处联动。
+
+### 6.3 决策卡 `DecisionCard`
+
+三档寄存器，按读者需要的顺序：**在哪**（十字）→ **多确定**（阶梯）→ **凭什么**（推理输入，默认折叠）。
+散文放最后且最小：兜底规则、失败原因。元信息用 `dl` 收成 6 个 `label · value` 对。
+
+### 6.4 决策历史 `DecisionTimeline`
+
+不做「每行一句话」，做**表**：五列固定 —— 编号 / 方向 / **选项占比** / 延迟 / 状态。
+占比那一列把**条和数字合成一列**：两个表头写同一个指标会让人以为在比较两件事。
+表头 sticky。悬停给 `title` 全量详情，行内再放一段 `sr-only` 说明。
+兜底行在箭头与胶囊上**同时**变黄：这是唯一值得隔着一个房间也能认出来的结果。
+
+行容器必须带 `relative`：`sr-only` 是 `position: absolute`，而行是网格 —— 少了这个定位上下文，
+那段文字会掉进隐式的第二行，而它与页面之间没有任何裁剪祖先，于是跑到文档坐标里去
+把 `scrollHeight` 撑大（每行约 33px），表现为一个「查不到来源」的幽灵整页滚动条。
+
+### 6.5 图表
+
+- **整局置信度**（`ConfidenceChart`）：两条 area —— 「自评置信度」（靛蓝）与「选项占比」（琥珀）。
+  两者长期背离代表模型在犹豫。虚线均值线用于跨局比较。x 轴是**决策序号**。
+- **延迟分布**（`LatencyChart`）：分桶**固定**（<150 / 150–300 / 300–500 / 500–800 / 800–1200 / ≥1200 ms），
+  这样不同局之间可以比较 —— 轴会随数据移动的图表没有比较价值。
+  **其中 500 ms 那条分界不是随手取的，它等于 `DECISION_DEADLINE_MS`**（偷懒算法：3 格 ÷ 6 格每秒 = 500 ms）：
+  它右边的桶就是「答案抵达时路口已经过了」。所以这条边界不能单独挪 —— 要么把常量一起挪，
+  要么这个分界就不再说「来不及」了。
+  **但它和 `stale`（`过期回答`）不是同一批记录，别混读**：直方图只看得见**测到的**延迟，
+  `stale` 统计的是**所有作废的决策**。控制器会作废一批直方图根本看不见的记录 ——
+  没等到答案就被丢弃的在途请求（切模式、换世代、被后面的路口取代）`latencyMs` 是 `null`，不进任何桶；
+  反过来，一个按时抵达、却因为同样这些非延迟原因被作废的答案会带着很短的延迟记成 STALE，
+  落进直方图眼里「完全健康」的那几桶。两者是**重叠**关系，数值不相等不代表哪一个算错了。
+- 图表一律：无渐变洗色、`isAnimationActive={false}`（序列每秒增长，重播动画不可读）、
+  网格只留横线、颜色取 `var(--token)`。
+- **`margin.left` 不要给负数。** 想靠负边距挤掉 Y 轴空白是常见写法，但轴的 `text-anchor`
+  是 `end`：负的左边距把绘图区往左推，刻度文字就从画布左缘外面开始画，
+  `100% / 50% / 0%` 会被裁成三个 `0%`。宁可让 `YAxis` 自己的 `width` 留够，
+  再把绘图区往里收。
+- 图表都是 `dynamic(..., { ssr: false })`：它是全应用唯一会拉进图表库的东西，控制台必须先画出来。
+- 两张图都要 `accessibilityLayer={false}` + 容器 `role="img"` + 一句结论式的 `aria-label`，
+  理由见 §8.1 —— 默认值会往 Tab 顺序里塞一个读不出名字的焦点位。
+
+### 6.6 收敛次要内容的三件工具
+
+| 工具 | 用来装 | 例子 |
+| --- | --- | --- |
+| **Tabs** | 同一位置的多个寄存器 | 决策历史 / 指标 / 状态 |
+| **Collapsible** | 默认不需要、按需展开的细节 | 推理输入、操作面板「更多」 |
+| **Dialog** | 散文说明，完全不占版面 | 玩法与颜色说明 |
+
+规则：**默认折叠的必须是「设置一次就忘」的东西**（种子、调试、导出、音效、CRT），
+或者「只在追问时才看」的东西（推理输入）。主操作、玩家选择、速度永远不折叠。
+
+### 6.7 指标口径（每个数到底在数什么）
+
+这张面板最容易出的错不是排版，是**把「一个数」读成「一个原因」** —— 文案写成单一归因，
+而代码里有好几条路径都会让它 +1。下表是唯一口径，动文案前先对着它看。
+
+| 展示 | 字段 | 真正计入的 | 容易误读成 |
+| --- | --- | --- | --- |
+| Jev 请求数 | `requests` | `source !== "FALLBACK"` 的记录（**含没答上来的**） | 只算成功的请求 |
+| 已执行 | `applied` | `status === "APPLIED"` 且非兜底 | 所有拿到手的答案 |
+| 过期回答 | `stale` | `status === "STALE"`：答晚了、切模式、换世代、被后面的路口取代 | 只算迟到的 |
+| 超时 | `timeouts` | `DECISION_TIMEOUT_MS` 内没答案、请求被彻底放弃 | 越过 500 ms 可用窗口的 |
+| 错误 | `errors` | 连接失败、Jev 报错/限流、没配 Key，**以及客户端校验没过的答案** | 只是网络问题 |
+| 无效 | `invalid` | 只有 provider **不经验证**就 resolve 时才可能 —— **生产恒为 0** | Jev 答得不合法 |
+| 兜底次数 | `fallbacks` | `source === "FALLBACK"`：答晚了 / 没答上来 / 答得不合法**都算** | 只有答晚了 |
+| 待处理 | `pending` | 还没落地的：询问中，**加上答案已到手、还没到路口的** | 只有还在等的 |
+
+两条横贯全表的规则：
+
+- **两个时限不是一回事。** `DECISION_DEADLINE_MS`（500 ms = 3 格 ÷ 6 格每秒）决定答案**还能不能用**；
+  `DECISION_TIMEOUT_MS`（1500 ms）只决定**还要不要继续等**。直方图的 500 ms 分界是前者，`超时` 行是后者。
+  两个数都从常量插值进文案，不要写死。
+- **`无效` 恒为 0 是后果，不是 bug。** `lib/jev/validation.ts` 会先校验 decisionId、是否方向、
+  是否在合法方向内，不过就抛错，于是 `onResponse` 里那两条 `INVALID` 分支只在测试的 `ManualProvider` 下可达；
+  生产环境里这类回答统一记成 `错误`。要让它变活，得把 `DecideError("invalid")` 映射成 `INVALID`
+  状态（会改变已有统计口径，先决定再改）。钉住这些行为的测试在 `tests/telemetry.test.ts`
+  与 `tests/jev-client.test.ts`。
+
+---
+
+## 7. 动效规范
+
+- 只动 `transform` / `opacity` / `background-color` / `border-color` / `width`。
+- 时长：`--dur-fast 120ms`（hover、按压）/ `--dur 180ms`（进入、折叠）。
+- 缓动：`--ease`（`cubic-bezier(0.2,0,0,1)`）用于交互；`--ease-out`（`cubic-bezier(0.16,1,0.3,1)`）
+  用于进入。**不用回弹**：真实的东西是减速停下的。
+- 按压反馈是 `scale(0.96)`，不改变布局盒。
+- `prefers-reduced-motion` 在 `@layer base` 里全局接管；**没有任何信息是只靠动画传达的**。
+
+---
+
+## 8. 无障碍规范
+
+- 语义 HTML 优先（`dl` / `table` / `ol` / `button` / `label`），ARIA 只补缺口。
+- 每个图标按钮有 `aria-label`；装饰性图标 `aria-hidden`。
+- 可聚焦元素统一吃全局 `:focus-visible` 光环（`--focus-ring`，靛蓝 4px 外环）。
+- 方向十字用 `role="img"` + 完整句子；交互态用 `role="group"` + 每键 `aria-pressed`。
+  **不可通行的方向要 `disabled`** —— 它不能执行任何动作，就不该占一个 Tab 位。
+- 决策历史每行附 `sr-only` 详情，不依赖 `title` 传达关键信息。
+- 主操作按钮在 `GAME_OVER` 时 `disabled`，并提供「重开」——不给无法完成的操作留位置。
+- 颜色不是唯一信号（见 §4.2）。
+
+### 8.1 图表是「带标签的图」，不是「匿名的控件」
+
+Recharts 的 `accessibilityLayer` 默认开启，会把画布标成
+`role="application" tabindex="0"` 且**不带任何无障碍名称**。后果有两个：
+它在控制台中间塞进一个焦点位，屏幕阅读器读出的是坐标轴刻度拼起来的胡话
+（实测是 `1 0% 50% 100%`）；而 `role="application"` 会在获得焦点时**吞掉方向键**。
+
+本应用的图表数据在紧邻的位置都有文字版本（历史表逐行列出每次决策的占比，
+指标页有数字磁贴与计数清单），所以两张图都是：
+
+```tsx
+<div role="img" aria-label="…一句说清走势与结论的话…">
+  <ResponsiveContainer>…<AreaChart accessibilityLayer={false}>…</AreaChart></ResponsiveContainer>
+</div>
+```
+
+`aria-label` 要写**结论**而不是复述轴：如「…共 24 次决策；自评置信度均值 62%；最新 96%。」、
+「延迟分布，共 45 次决策；最多的一档是 150–300 ms，共 21 次。」
+
+**只有当图表是数据的唯一出口时**才反过来保留 `accessibilityLayer`，并另行补名称。
+
+---
+
+## 9. 反模式（改这个界面时不要做）
+
+1. **不要**让页面滚动 —— 需要更多空间时，折叠或分页，不要加高。
+2. **不要**在一个列里放两个滚动区。展开内容应该让列表变短。
+3. **不要**把游戏配色用在界面装饰上（琥珀是吃豆人的，不是按钮的）。
+4. **不要**用阴影表达层级。层级是亮度。
+5. **不要**给 11px 以下文字、不要给数字用非等宽字体。
+6. **不要**用 emoji 当图标，不要混用图标风格（统一 Phosphor，同层级统一线宽）。
+7. **不要**把方向写成散文。方向有形状，用形状。
+8. **不要**给高频图表加过渡动画。
+9. **不要**在同一个面板里用两种时态描述同一件事（历史 vs 当前）。
+10. **不要**把说明文字塞回页脚 —— 它是 Dialog。
+
+---
+
+## 10. 验证
 
 ```bash
-npx tsc --noEmit          # no output
-npx vitest run            # 87 passed
-npm run build             # production build
-npx lighthouse http://localhost:3000 --only-categories=accessibility,best-practices \
-  --preset=desktop --chrome-flags="--headless=new"   # a11y 100 is the target
+npx tsc --noEmit                       # 无输出
+npx vitest run                         # lib 层 95 项
+npm run build                          # 生产构建
 ```
+
+浏览器实测清单（改了布局或组件后必须走一遍）：
+
+- [ ] 全页无滚动：`document.scrollHeight === window.innerHeight`（宽 ≥900 且高 ≥620 时）
+- [ ] **有且只有一层滚动条**：数一遍
+      `[...document.querySelectorAll("*")].filter(e => e.scrollHeight > e.clientHeight + 2 && /auto|scroll/.test(getComputedStyle(e).overflowY))`
+      —— 锁定时长度应为 1，降级时应为 0（那一层是页面自己）
+- [ ] 迷宫不被裁切：`画布可见高度 ÷ 画布高度 === 1`，四种尺寸都要过
+- [ ] 开「更多」、开「推理输入」时，页面仍无滚动条，滚动条数量不增加
+- [ ] 1280×720 与 1440×900 下左右两栏都不出现横向溢出
+- [ ] 1280×720（恰好压住锁定阈值）能拿到单屏布局、历史列表仍有约 3 行
+- [ ] 768×900 与 1280×560 落到降级分支时，只有页面滚动、无嵌套滚动条、迷宫完整
+- [ ] 帮助弹层打开时根滚动被锁：`html` 的 `overflowY` 为 `hidden`，`innerWidth - clientWidth === 0`
+- [ ] Tab 标签页要用**真实指针事件**切换 —— Radix 在 `pointerdown` 上切，合成 `click()` 无效
+- [ ] console 无报错（尤其 Radix ref 转发与控制件嵌套）
+- [ ] **键盘顺序**：`document.querySelectorAll` 里的可聚焦元素顺序应为
+      跳转链接 → 头部主操作 → 迷宫面板的说明按钮 → 玩家 → 速度 → 重新开始 → 更多 →
+      （有决策时）方向十字的可通行键 → 概率阶梯行 → 推理输入 → 标签条 → 标签页。
+      可用 `checkVisibility()` 过滤掉折叠内容与未激活标签页里的元素后逐项打印核对；
+      `positiveTabindex` 必须为空数组（有正值就会打乱 DOM 顺序即 Tab 顺序的前提）。
+      **不要为了「有焦点」而给不可操作的东西留 Tab 位**：不可通行方向是 `disabled`，
+      图表是 `role="img"`（见 §8.1）。
+- [ ] **`prefers-reduced-motion`**：用 `--force-prefers-reduced-motion` 起 Chrome，
+      断言 `document.getAnimations().filter(a => a.playState === "running").length === 0`，
+      且**信息不丢**（迷宫提示语、参数条标签、决策面板文字仍在），对局仍能正常推进。
+- [ ] `matchMedia("(prefers-reduced-motion: reduce)")` 生效后没有元素靠动画才能读到状态。
+
+实测建议跑 `npm run dev` 而不是 `npm start`：改完文案/样式秒级生效，省掉每轮几十秒的构建。
+浏览器侧走 `@skill:web-access` 的 CDP 代理（`/new`、`/eval`、`/clickAt`、`/screenshot`）即可，
+但注意两点：**新开的标签页在后台，游戏循环会正确地暂停**（`document.hidden`），
+必须关掉其它标签页把它置前，否则会误判成「对局没跑起来」。
