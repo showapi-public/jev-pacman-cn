@@ -330,7 +330,10 @@ function drawGhostBody(
   }
 }
 
-const CANVAS_FONT_STACK = "ui-monospace, SFMono-Regular, Menlo, monospace";
+/* Canvas text is drawn with the mono face, but the popups also carry Chinese
+   ("+10 第 3 关"), so the stack has to name a Simplified Chinese family too. */
+const CANVAS_FONT_STACK =
+  '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", monospace';
 
 /** Particles and score popups. Purely decorative: the HUD carries the numbers. */
 function drawJuice(context: CanvasRenderingContext2D, juice: JuiceState): void {

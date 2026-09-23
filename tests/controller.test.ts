@@ -129,9 +129,9 @@ describe("agent controller", () => {
     const fallbackRecord = records.find((record) => record.source === "FALLBACK");
 
     expect(jevRecord?.status).toBe("STALE");
-    expect(jevRecord?.note).toContain("junction reached");
+    expect(jevRecord?.note).toContain("抵达路口");
     expect(fallbackRecord?.applied).toBe("DOWN");
-    expect(fallbackRecord?.note).toBe("keep heading");
+    expect(fallbackRecord?.note).toBe("保持当前朝向");
     expect(state.pacman.direction).toBe("DOWN");
     expect(state.status).toBe("PLAYING");
   });
@@ -185,7 +185,7 @@ describe("agent controller", () => {
     const records = controller.snapshot().telemetry;
     const jevRecord = records.find((record) => record.source === "JEV");
     expect(jevRecord?.status).toBe("INVALID");
-    expect(jevRecord?.note).toContain("legal directions");
+    expect(jevRecord?.note).toContain("合法方向");
     expect(jevRecord?.applied).toBeNull();
     expect(records.some((record) => record.source === "FALLBACK")).toBe(true);
     expect(state.pacman.direction).toBe("DOWN");

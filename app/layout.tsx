@@ -13,9 +13,9 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jev Plays Pac-Man",
+  title: "Jev 玩吃豆人",
   description:
-    "TypeSafe's Jev (a System One model) plays Pac-Man in real time from structured game state: one choice per junction, no screenshots, no fine-tuning.",
+    "TypeSafe 的 Jev（System One 模型）依据结构化游戏状态实时游玩吃豆人：每个路口做一次选择，不看截图，无需微调。",
 };
 
 export const viewport: Viewport = {
@@ -25,7 +25,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrains.variable}`}>
+    <html lang="zh-CN" className={`${inter.variable} ${jetbrains.variable}`}>
       <body>{children}</body>
     </html>
   );

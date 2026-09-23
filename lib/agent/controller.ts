@@ -121,14 +121,14 @@ export class AgentController {
   setProvider(provider: DecisionProvider | null): void {
     if (this.provider === provider) return;
     this.provider = provider;
-    this.abandonPending("provider changed");
+    this.abandonPending("玩家模式已切换");
     this.apiKeyMissing = false;
     this.lastError = null;
   }
 
   /** New game: forget everything from the old one. */
   reset(): void {
-    this.abandonPending("game restarted");
+    this.abandonPending("游戏已重开");
     this.pending = null;
     this.telemetry = [];
     this.recentDecisions = [];
@@ -148,7 +148,7 @@ export class AgentController {
   tick(state: GameState): void {
     if (state.epoch !== this.epoch) {
       this.epoch = state.epoch;
-      this.abandonPending("game epoch changed");
+      this.abandonPending("游戏世代已变更");
       this.recentDecisions = [];
       this.committedKey = null;
     }
@@ -197,10 +197,10 @@ export class AgentController {
       // Last chance: the engine will reach the junction centre within a step.
       if (distanceToTileCenter(state.pacman) <= this.commitWindowTiles) {
         if (this.pending && samePosition(this.pending.junction, junction)) {
-          this.closePending(this.pending, "STALE", "junction reached before the answer arrived");
+          this.closePending(this.pending, "STALE", "还没收到回答就已抵达路口");
           this.pending = null;
         } else if (this.pending) {
-          this.abandonPending("superseded by a later junction");
+          this.abandonPending("已被后面的路口取代");
         }
         this.applyFallback(state, junction, decisionPoint.heading, legalDirections);
         this.committedKey = commitKey;
@@ -271,7 +271,7 @@ export class AgentController {
     ) {
       return; // already asked about this junction
     }
-    if (this.pending) this.abandonPending("moved on to another junction");
+    if (this.pending) this.abandonPending("已转向另一个路口");
 
     const now = this.now();
     if (now - this.lastRequestAt < this.minIntervalMs) return;
@@ -357,7 +357,7 @@ export class AgentController {
 
     if (result.decisionId !== pending.decisionId) {
       pending.record.status = "INVALID";
-      pending.record.note = "answer carried the wrong decision id";
+      pending.record.note = "回答携带了错误的决策 ID";
       pending.phase = "ABANDONED";
       if (this.pending === pending) this.pending = null;
       return;
@@ -365,7 +365,7 @@ export class AgentController {
 
     if (!pending.legalDirections.includes(result.direction)) {
       pending.record.status = "INVALID";
-      pending.record.note = `answer ${result.direction} was not one of the legal directions`;
+      pending.record.note = `回答 ${result.direction} 不在合法方向之内`;
       pending.phase = "ABANDONED";
       if (this.pending === pending) this.pending = null;
       return;
@@ -452,7 +452,7 @@ function samePosition(a: TilePosition, b: TilePosition): boolean {
 function asDecideError(error: unknown): DecideError {
   if (error instanceof Error && error.name === "DecideError") return error as DecideError;
   if (error instanceof Error) {
-    if (error.name === "AbortError") return new DecideError("timeout", "decision timed out");
+    if (error.name === "AbortError") return new DecideError("timeout", "决策超时");
     return new DecideError("unknown", error.message);
   }
   return new DecideError("unknown", String(error));

@@ -25,7 +25,7 @@ export function createJevProvider(endpoint = DECIDE_ENDPOINT, fetchImpl: typeof 
         });
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {
-          throw new DecideError("timeout", "decision timed out");
+          throw new DecideError("timeout", "决策超时");
         }
         throw new DecideError("connection", error instanceof Error ? error.message : String(error));
       }
@@ -33,7 +33,7 @@ export function createJevProvider(endpoint = DECIDE_ENDPOINT, fetchImpl: typeof 
       if (!response.ok) {
         const body = await safeJson(response);
         const kind = (body.error?.kind ?? "http") as DecideError["kind"];
-        throw new DecideError(kind, body.error?.message ?? `request failed with ${response.status}`, response.status);
+        throw new DecideError(kind, body.error?.message ?? `请求失败（HTTP ${response.status}）`, response.status);
       }
 
       const body = await safeJson(response);

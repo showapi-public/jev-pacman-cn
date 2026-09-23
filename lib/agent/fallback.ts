@@ -33,8 +33,8 @@ export function chooseFallback(
 ): FallbackChoice {
   const legal = legalDirections.filter((direction) => direction !== oppositeDirection(heading));
 
-  if (legal.includes(heading)) return { direction: heading, rule: "keep heading" };
-  if (legal.length === 1) return { direction: legal[0], rule: "only other way out" };
+  if (legal.includes(heading)) return { direction: heading, rule: "保持当前朝向" };
+  if (legal.length === 1) return { direction: legal[0], rule: "唯一其他出口" };
 
   if (legal.length > 1) {
     const dangerous = state.ghosts.filter((ghost) => isDangerousGhost(ghost.mode));
@@ -56,7 +56,7 @@ export function chooseFallback(
           best = direction;
         }
       }
-      return { direction: best, rule: "away from the nearest dangerous ghost" };
+      return { direction: best, rule: "远离最近的危险幽灵" };
     }
   }
 
@@ -65,5 +65,5 @@ export function chooseFallback(
     ...DIRECTION_ORDER.filter((direction) => direction === oppositeDirection(heading) && legalDirections.includes(direction)),
   ];
   const direction = order[0] ?? oppositeDirection(heading);
-  return { direction, rule: order.length === 0 ? "dead end, turn around" : "direction order" };
+  return { direction, rule: order.length === 0 ? "死路，掉头" : "按固定方向顺序" };
 }

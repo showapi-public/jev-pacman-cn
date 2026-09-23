@@ -165,7 +165,7 @@ describe("answer validation", () => {
     const result = validateDecision({ decisionId: "d7", direction: "LEFT" }, request);
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.reason).toContain("legal directions");
+    expect(result.reason).toContain("合法方向");
     expect(legal).toEqual(["UP", "RIGHT"]);
   });
 

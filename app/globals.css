@@ -83,11 +83,16 @@
   --s-6: 24px;
   --s-8: 32px;
 
-  /* type */
+  /* type — Latin first (Inter / JetBrains Mono), then an explicit Simplified
+     Chinese chain. The CJK families must come *before* Noto Sans JP / Hiragino
+     Kaku Gothic: those two carry Han glyphs, so on a machine that has them they
+     would win the per-glyph cascade and render Chinese with Japanese forms.
+     Keep the JP faces last as a last-resort CJK fallback. */
   --font-sans: var(--font-inter), Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Source Han Sans SC",
     "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif;
   --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
-    Consolas, monospace;
+    Consolas, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", monospace;
   --fs-micro: 11px;
   --fs-body: 13px;
   --fs-title: 15px;

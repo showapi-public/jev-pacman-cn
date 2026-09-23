@@ -149,7 +149,7 @@ export function PacmanCanvas(props: PacmanCanvasProps) {
       <canvas
         ref={canvasRef}
         role="img"
-        aria-label="Pac-Man maze. The live score, pellets and ghost state are in the stats below the maze."
+        aria-label="吃豆人迷宫。实时得分、豆子与幽灵状态见迷宫下方的统计条。"
         /* Intrinsic size is set here so the box has its final size before the
            effect runs: the CSS caps it by height, and nothing shifts. */
         width={mazeWidth}
@@ -158,7 +158,7 @@ export function PacmanCanvas(props: PacmanCanvasProps) {
       {props.attract ? (
         <p className="attract attract-overlay">
           <span className="attract-coin" aria-hidden="true" />
-          Insert coin — press start
+          投入硬币 —— 按开始
         </p>
       ) : null}
     </div>
@@ -215,7 +215,7 @@ function reactTo(
         sound.play("level");
         if (reduced) break;
         addConfetti(juice, state.maze.width, state.maze.height, EFFECT_COLORS.level, 54);
-        addPopup(juice, state.maze.width / 2, state.maze.height * 0.42, `LEVEL ${state.level}`, EFFECT_COLORS.score, 1200);
+        addPopup(juice, state.maze.width / 2, state.maze.height * 0.42, `第 ${state.level} 关`, EFFECT_COLORS.score, 1200);
         break;
       case "GAME_OVER":
         if (reduced) break;

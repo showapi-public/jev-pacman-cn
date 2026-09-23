@@ -13,9 +13,18 @@ export const PLAY_MODES: readonly PlayMode[] = ["JEV", "MANUAL", "RANDOM", "HEUR
 
 export const MODE_LABELS: Record<PlayMode, string> = {
   JEV: "Jev",
-  MANUAL: "Manual",
-  RANDOM: "Random",
-  HEURISTIC: "Heuristic",
+  MANUAL: "手动",
+  RANDOM: "随机",
+  HEURISTIC: "启发式",
+};
+
+/** `GameStatus`, in words, for the header chip and anything else that names it. */
+export const STATUS_LABELS: Record<GameStatus, string> = {
+  READY: "就绪",
+  PLAYING: "进行中",
+  PAUSED: "已暂停",
+  GAME_OVER: "游戏结束",
+  CLEARED: "已通关",
 };
 
 export const SPEEDS = [0.5, 1, 2] as const;
@@ -44,6 +53,14 @@ export const KEY_DIRECTIONS: Record<string, Direction> = {
   ArrowRight: "RIGHT",
 };
 
+/** The four directions, in words, wherever the UI shows one to a human. */
+export const DIRECTION_LABELS: Record<Direction, string> = {
+  UP: "上",
+  DOWN: "下",
+  LEFT: "左",
+  RIGHT: "右",
+};
+
 export function formatMs(milliseconds: number): string {
   if (!Number.isFinite(milliseconds)) return "—";
   if (milliseconds < 1000) return `${Math.round(milliseconds)} ms`;
@@ -66,23 +83,23 @@ export function formatPercent(fraction: number | null | undefined, digits = 0): 
 export function describeEvent(event: GameEvent): string {
   switch (event.type) {
     case "PELLET_EATEN":
-      return `+${event.score} pellet at (${event.tile.x}, ${event.tile.y})`;
+      return `在 (${event.tile.x}, ${event.tile.y}) 吃到豆子 +${event.score}`;
     case "POWER_PELLET_EATEN":
-      return `+${event.score} power pellet at (${event.tile.x}, ${event.tile.y})`;
+      return `在 (${event.tile.x}, ${event.tile.y}) 吃到能量豆 +${event.score}`;
     case "GHOST_EATEN":
-      return `+${event.score} ${event.ghost} eaten`;
+      return `${event.ghost} 被吃掉 +${event.score}`;
     case "PACMAN_DIED":
-      return `Pac-Man caught, ${event.livesLeft} ${event.livesLeft === 1 ? "life" : "lives"} left`;
+      return `吃豆人被抓住，剩余 ${event.livesLeft} 条命`;
     case "LEVEL_CLEARED":
-      return `level ${event.level} cleared`;
+      return `第 ${event.level} 关通过`;
     case "FRIGHTENED_STARTED":
-      return `ghosts frightened for ${(event.durationMs / 1000).toFixed(0)}s`;
+      return `幽灵进入受惊状态 ${(event.durationMs / 1000).toFixed(0)} 秒`;
     case "FRIGHTENED_ENDED":
-      return "ghosts back to normal";
+      return "幽灵恢复正常";
     case "GHOST_RELEASED":
-      return `${event.ghost} left the house`;
+      return `${event.ghost} 离开鬼屋`;
     case "GAME_OVER":
-      return "game over";
+      return "游戏结束";
   }
 }
 

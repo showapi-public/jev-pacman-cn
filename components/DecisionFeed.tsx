@@ -1,7 +1,7 @@
 "use client";
 
 import type { DecisionTelemetry } from "@/lib/agent/types";
-import { formatMs, formatPercent } from "@/lib/ui";
+import { DIRECTION_LABELS, formatMs, formatPercent } from "@/lib/ui";
 
 import styles from "./DecisionFeed.module.css";
 
@@ -37,19 +37,19 @@ type ChipTone = "live" | "busy" | "warn" | "bad";
 function statusPill(record: DecisionTelemetry): { label: string; tone: ChipTone } {
   switch (record.status) {
     case "APPLIED":
-      return { label: "applied", tone: "live" };
+      return { label: "已执行", tone: "live" };
     case "PENDING":
       return record.choice
-        ? { label: "in hand", tone: "busy" }
-        : { label: "asking", tone: "busy" };
+        ? { label: "已到手", tone: "busy" }
+        : { label: "询问中", tone: "busy" };
     case "STALE":
-      return { label: "stale", tone: "bad" };
+      return { label: "已过期", tone: "bad" };
     case "TIMEOUT":
-      return { label: "timeout", tone: "bad" };
+      return { label: "超时", tone: "bad" };
     case "ERROR":
-      return { label: "error", tone: "bad" };
+      return { label: "出错", tone: "bad" };
     case "INVALID":
-      return { label: "invalid", tone: "bad" };
+      return { label: "无效", tone: "bad" };
   }
 }
 
@@ -62,16 +62,16 @@ export function DecisionFeed({ feed }: { feed: DecisionTelemetry[] }) {
   if (feed.length === 0) {
     return (
       <div className={empty}>
-        <p className={`label ${emptyLabel}`}>No decisions yet</p>
+        <p className={`label ${emptyLabel}`}>暂无决策</p>
         <p className={emptyHint}>
-          Press Start — decisions appear here as Pac-Man reaches junctions.
+          点击「开始」——当吃豆人抵达路口时，决策会出现在这里。
         </p>
       </div>
     );
   }
 
   return (
-    <ol className={list} aria-label="Decision history">
+    <ol className={list} aria-label="决策历史">
       {feed.map((record, index) => {
         const pill = statusPill(record);
         const choice = record.choice;
@@ -85,7 +85,11 @@ export function DecisionFeed({ feed }: { feed: DecisionTelemetry[] }) {
               className={`mono ${direction}`}
               data-kind={record.applied ? "applied" : choice ? "chosen" : "none"}
             >
-              {record.applied ?? choice ?? "—"}
+              {record.applied
+                ? DIRECTION_LABELS[record.applied]
+                : choice
+                  ? DIRECTION_LABELS[choice]
+                  : "—"}
             </span>
 
             <span className={note}>
@@ -105,7 +109,7 @@ export function DecisionFeed({ feed }: { feed: DecisionTelemetry[] }) {
                   <span className={sep} aria-hidden="true">
                     ·
                   </span>
-                  <span className={`mono ${conf}`}>{formatPercent(probability)} sure</span>
+                  <span className={`mono ${conf}`}>{formatPercent(probability)} 把握</span>
                 </>
               )}
             </span>

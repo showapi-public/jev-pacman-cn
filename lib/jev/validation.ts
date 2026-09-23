@@ -19,19 +19,19 @@ export type ValidationResult =
   | { ok: false; reason: string };
 
 export function validateDecision(payload: unknown, request: DecideRequest): ValidationResult {
-  if (typeof payload !== "object" || payload === null) return { ok: false, reason: "answer was not an object" };
+  if (typeof payload !== "object" || payload === null) return { ok: false, reason: "回答不是一个对象" };
   const body = payload as Record<string, unknown>;
 
   if (body.decisionId !== request.decisionId) {
-    return { ok: false, reason: `answer was for decision ${String(body.decisionId)}` };
+    return { ok: false, reason: `回答对应的决策是 ${String(body.decisionId)}` };
   }
 
   if (!isDirection(body.direction)) {
-    return { ok: false, reason: `answer was not a direction: ${String(body.direction)}` };
+    return { ok: false, reason: `回答不是一个方向：${String(body.direction)}` };
   }
 
   if (!request.legalDirections.includes(body.direction)) {
-    return { ok: false, reason: `answer ${body.direction} was not one of the legal directions` };
+    return { ok: false, reason: `回答 ${body.direction} 不在合法方向之内` };
   }
 
   const probabilities: Partial<Record<Direction, number>> = {};

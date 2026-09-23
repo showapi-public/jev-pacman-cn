@@ -25,7 +25,10 @@ import type { GameEvent, GameState } from "@/lib/game/types";
 import { createJevProvider } from "@/lib/jev/client";
 import { SOUND_STORAGE_KEY, SoundBoard } from "@/lib/audio/sfx";
 import {
+  DIRECTION_LABELS,
   KEY_DIRECTIONS,
+  MODE_LABELS,
+  STATUS_LABELS,
   describeEvent,
   formatMs,
   type PlayMode,
@@ -60,7 +63,7 @@ const GHOST_LEGEND = [
   { piece: "pinky", name: "Pinky" },
   { piece: "inky", name: "Inky" },
   { piece: "clyde", name: "Clyde" },
-  { piece: "frightened", name: "Frightened" },
+  { piece: "frightened", name: "受惊幽灵" },
 ] as const;
 
 export default function Page() {
@@ -272,17 +275,16 @@ export default function Page() {
   return (
     <div className="page">
       <a className="skip-link" href="#stage">
-        Skip to the game
+        跳到游戏区域
       </a>
 
       <header className="header">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true" />
           <div className="brand-text">
-            <h1 className="brand-name">Jev plays Pac-Man</h1>
+            <h1 className="brand-name">Jev 玩吃豆人</h1>
             <p className="brand-sub">
-              TypeSafe System One · structured state in, one legal direction out · no fine-tuning, no
-              screenshots
+              TypeSafe System One · 输入结构化状态，输出一个合法方向 · 无需微调，不看截图
             </p>
           </div>
         </div>
@@ -291,18 +293,18 @@ export default function Page() {
           {neon ? (
             <span className="chip" data-tone="busy" role="status">
               <span className="dot" aria-hidden="true" />
-              neon mode
+              霓虹模式
             </span>
           ) : null}
           <span className="chip" data-tone={STATUS_TONE[ui.status]}>
             <span className="dot" aria-hidden="true" />
-            {ui.status.toLowerCase().replace("_", " ")}
+            {STATUS_LABELS[ui.status]}
           </span>
           <span className="chip">
-            seed <span className="mono">{seed}</span>
+            种子 <span className="mono">{seed}</span>
           </span>
           <span className="chip">
-            play time <span className="mono">{formatMs(ui.playTimeMs)}</span>
+            游戏时长 <span className="mono">{formatMs(ui.playTimeMs)}</span>
           </span>
         </div>
       </header>
@@ -312,14 +314,14 @@ export default function Page() {
           <section className="panel" id="stage" aria-labelledby="maze-heading">
             <div className="panel-head">
               <h2 className="panel-title" id="maze-heading">
-                Maze
+                迷宫
               </h2>
               <span
                 className="chip"
                 data-tone={mode !== "MANUAL" && ui.status === "PLAYING" ? "live" : undefined}
               >
                 <span className="dot" aria-hidden="true" />
-                {mode === "MANUAL" ? "arrow keys" : `player ${mode.toLowerCase()}`}
+                {mode === "MANUAL" ? "方向键" : `玩家 ${MODE_LABELS[mode]}`}
               </span>
               <button
                 type="button"
@@ -329,13 +331,13 @@ export default function Page() {
                 onClick={handleStartPause}
                 title={
                   ui.status === "PLAYING"
-                    ? "Pause the game"
+                    ? "暂停游戏"
                     : ui.status === "PAUSED"
-                      ? "Resume the game"
-                      : "Start Jev playing"
+                      ? "继续游戏"
+                      : "让 Jev 开始游玩"
                 }
               >
-                {ui.status === "PLAYING" ? "Pause" : ui.status === "PAUSED" ? "Resume" : "Start"}
+                {ui.status === "PLAYING" ? "暂停" : ui.status === "PAUSED" ? "继续" : "开始"}
               </button>
             </div>
             <PacmanCanvas
@@ -355,7 +357,7 @@ export default function Page() {
               <ul className="legend">
                 <li className="legend-item">
                   <span className="legend-swatch" data-piece="pacman" aria-hidden="true" />
-                  Pac-Man
+                  吃豆人
                 </li>
                 {GHOST_LEGEND.map((ghost) => (
                   <li className="legend-item" key={ghost.piece}>
@@ -367,11 +369,11 @@ export default function Page() {
             </div>
           </section>
 
-          <section className="panel" aria-label="Game totals">
+          <section className="panel" aria-label="游戏总览">
             <GameHud ui={ui} />
           </section>
 
-          <section className="panel" aria-label="Controls">
+          <section className="panel" aria-label="操作面板">
             <div className="panel-body tight">
               <Controls
                 mode={mode}
@@ -398,39 +400,39 @@ export default function Page() {
             <section className="panel" aria-labelledby="debug-heading">
               <div className="panel-head">
                 <h2 className="panel-title" id="debug-heading">
-                  Debug
+                  调试
                 </h2>
                 <span className="label">?debug=1</span>
               </div>
               <div className="panel-body">
                 <dl className="debug-list">
-                  <dt className="label">Target junction</dt>
+                  <dt className="label">目标路口</dt>
                   <dd className="mono">
                     {snapshot.target
-                      ? `(${snapshot.target.junction.x}, ${snapshot.target.junction.y}) · legal ${snapshot.target.legalDirections.join(" ")} · ${snapshot.target.tilesAway.toFixed(2)} tiles away`
-                      : "none"}
+                      ? `(${snapshot.target.junction.x}, ${snapshot.target.junction.y}) · 合法方向 ${snapshot.target.legalDirections.map((direction) => DIRECTION_LABELS[direction]).join(" ")} · 还差 ${snapshot.target.tilesAway.toFixed(2)} 格`
+                      : "无"}
                   </dd>
-                  <dt className="label">Pending request</dt>
+                  <dt className="label">待处理请求</dt>
                   <dd className="mono">
-                    {pending ? `${pending.decisionId} (${snapshot.status})` : "none"}
+                    {pending ? `${pending.decisionId} (${snapshot.status})` : "无"}
                   </dd>
-                  <dt className="label">Recent decisions</dt>
+                  <dt className="label">最近决策</dt>
                   <dd className="mono">
                     {snapshot.recentDecisions.length === 0
-                      ? "none"
+                      ? "无"
                       : snapshot.recentDecisions
-                          .map((record) => `(${record.junction.x},${record.junction.y}) ${record.chosen}`)
+                          .map((record) => `(${record.junction.x},${record.junction.y}) ${DIRECTION_LABELS[record.chosen]}`)
                           .join(" → ")}
                   </dd>
-                  <dt className="label">Epoch</dt>
+                  <dt className="label">世代</dt>
                   <dd className="mono">
-                    {snapshot.epoch} · tile overlay {snapshot.target ? "on" : "off"}
+                    {snapshot.epoch} · 格子覆盖层 {snapshot.target ? "开" : "关"}
                   </dd>
                 </dl>
 
-                <ol className="event-log" aria-label="Recent game events">
+                <ol className="event-log" aria-label="最近游戏事件">
                   {ui.events.length === 0 ? (
-                    <li className="event-log-row">No game events yet.</li>
+                    <li className="event-log-row">暂无游戏事件。</li>
                   ) : (
                     ui.events.map((line, index) => (
                       <li className="event-log-row" key={`${line}-${index}`}>
@@ -447,7 +449,7 @@ export default function Page() {
         <div className="stack">
           <section className="panel" aria-labelledby="decision-tab">
             <div className="panel-head">
-              <div className="tabs" role="tablist" aria-label="Decision view">
+              <div className="tabs" role="tablist" aria-label="决策视图">
                 <button
                   type="button"
                   className="tab"
@@ -457,7 +459,7 @@ export default function Page() {
                   aria-controls="decision-panel"
                   onClick={() => setTab("DECISION")}
                 >
-                  Decision
+                  决策
                 </button>
                 <button
                   type="button"
@@ -468,10 +470,10 @@ export default function Page() {
                   aria-controls="state-panel"
                   onClick={() => setTab("STATE")}
                 >
-                  State
+                  状态
                 </button>
               </div>
-              <span className="label">{snapshot.lastObservation ? "live" : "idle"}</span>
+              <span className="label">{snapshot.lastObservation ? "实时" : "空闲"}</span>
             </div>
 
             {tab === "DECISION" ? (
@@ -480,10 +482,10 @@ export default function Page() {
               </div>
             ) : (
               <div role="tabpanel" id="state-panel" aria-labelledby="state-tab">
-                <pre className="state-json" aria-label="Raw state sent to Jev">
+                <pre className="state-json" aria-label="发送给 Jev 的原始状态">
                   {snapshot.lastObservation
                     ? JSON.stringify(snapshot.lastObservation, null, 2)
-                    : "Press Start — the first observation is sent three tiles before the first junction."}
+                    : "点击「开始」——第一个观测数据会在到达第一个路口前三格时发出。"}
                 </pre>
               </div>
             )}
@@ -491,7 +493,7 @@ export default function Page() {
 
           <section className="panel" aria-labelledby="feed-tab">
             <div className="panel-head">
-              <div className="tabs" role="tablist" aria-label="Session view">
+              <div className="tabs" role="tablist" aria-label="本局视图">
                 <button
                   type="button"
                   className="tab"
@@ -501,7 +503,7 @@ export default function Page() {
                   aria-controls="feed-panel"
                   onClick={() => setSideTab("FEED")}
                 >
-                  Decision feed
+                  决策记录
                 </button>
                 <button
                   type="button"
@@ -512,10 +514,10 @@ export default function Page() {
                   aria-controls="metrics-panel"
                   onClick={() => setSideTab("METRICS")}
                 >
-                  Metrics
+                  指标
                 </button>
               </div>
-              <span className="label">{snapshot.telemetry.length} records</span>
+              <span className="label">{snapshot.telemetry.length} 条记录</span>
             </div>
             <div role="tabpanel" id={sideTab === "FEED" ? "feed-panel" : "metrics-panel"} aria-labelledby={sideTab === "FEED" ? "feed-tab" : "metrics-tab"}>
               {sideTab === "FEED" ? <DecisionFeed feed={ui.feed} /> : <MetricsPanel metrics={ui.metrics} />}
@@ -526,15 +528,14 @@ export default function Page() {
 
       <footer className="footer-note">
         <p>
-          Pac-Man moves at a fixed 60 Hz. Jev is asked one question per junction, three tiles before
-          Pac-Man gets there, and only about the directions he may legally take. Late answers are
-          thrown away, and anything that is not Jev&apos;s answer is labelled <code>FALLBACK</code> in
-          the feed.
+          吃豆人以固定 60 Hz 移动。每到路口，系统会在吃豆人抵达前三格向 Jev 提问一次，而且只问它
+          合法可走的方向。迟到的回答会被丢弃，任何不是 Jev 给出的选择都会在记录里标记为{" "}
+          <code>FALLBACK</code>。
         </p>
         <p>
           {mode === "MANUAL"
-            ? "Playing as manual: use the arrow keys."
-            : `Playing as ${mode.toLowerCase()}. Press ?debug=1 for tile coordinates and the pending request.`}
+            ? "当前为手动模式：使用方向键操作。"
+            : `当前玩家：${MODE_LABELS[mode]}。加上 ?debug=1 可查看格子坐标与待处理请求。`}
         </p>
       </footer>
     </div>

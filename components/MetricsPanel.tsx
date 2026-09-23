@@ -53,34 +53,34 @@ const ms = (value: number | null) => formatMs(value ?? Number.NaN);
 
 const GROUPS: readonly { heading: string; rows: readonly MetricRow[] }[] = [
   {
-    heading: "Decision quality",
+    heading: "决策质量",
     rows: [
-      row("requests", "Jev requests", count),
-      row("applied", "Applied", count),
-      row("fallbacks", "Fallbacks", count),
-      row("stale", "Stale answers", count),
-      row("timeouts", "Timeouts", count),
-      row("errors", "Errors", count),
-      row("invalid", "Invalid", count),
+      row("requests", "Jev 请求数", count),
+      row("applied", "已执行", count),
+      row("fallbacks", "兜底次数", count),
+      row("stale", "过期回答", count),
+      row("timeouts", "超时", count),
+      row("errors", "错误", count),
+      row("invalid", "无效", count),
     ],
   },
   {
-    heading: "Latency",
+    heading: "延迟",
     rows: [
-      row("appliedRate", "Applied rate", (value) => formatPercent(value), true),
-      row("meanLatencyMs", "Mean", ms),
+      row("appliedRate", "执行率", (value) => formatPercent(value), true),
+      row("meanLatencyMs", "平均值", ms),
       row("p50LatencyMs", "p50", ms),
       row("p95LatencyMs", "p95", ms),
     ],
   },
   {
-    heading: "Game",
+    heading: "游戏",
     rows: [
-      row("score", "Score", (value) => value.toLocaleString("en-US")),
-      row("pelletsEaten", "Pellets eaten", count),
-      row("ghostsEaten", "Ghosts eaten", count),
-      row("survivalMs", "Survival", ms),
-      row("level", "Level", (value, metrics) => `${value}${metrics.lives === 0 ? " · over" : ""}`),
+      row("score", "得分", (value) => value.toLocaleString("zh-CN")),
+      row("pelletsEaten", "吃掉豆子", count),
+      row("ghostsEaten", "吃掉幽灵", count),
+      row("survivalMs", "存活时长", ms),
+      row("level", "关卡", (value, metrics) => `${value}${metrics.lives === 0 ? " · 结束" : ""}`),
     ],
   },
 ];

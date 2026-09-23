@@ -28,13 +28,13 @@ export interface ControlsProps {
 export function Controls(props: ControlsProps) {
   const { mode, speed, seed, debug, soundOn, crtOn, status } = props;
   const running = status === "PLAYING";
-  const playLabel = running ? "Pause" : status === "PAUSED" ? "Resume" : "Start";
+  const playLabel = running ? "暂停" : status === "PAUSED" ? "继续" : "开始";
 
   return (
     <div className="controls-row">
       <div className="controls-group">
         <span className="label" aria-hidden="true">
-          Play
+          对局
         </span>
         <div className="segmented">
           <button
@@ -46,15 +46,15 @@ export function Controls(props: ControlsProps) {
           >
             {playLabel}
           </button>
-          <button type="button" className="btn" onClick={props.onRestart} title="Restart from the seed">
-            Restart
+          <button type="button" className="btn" onClick={props.onRestart} title="按当前种子重新开始">
+            重新开始
           </button>
         </div>
       </div>
 
-      <div className="controls-group" role="group" aria-label="Player">
+      <div className="controls-group" role="group" aria-label="玩家">
         <span className="label" id="player-label">
-          Player
+          玩家
         </span>
         <div className="segmented" aria-labelledby="player-label">
           {(Object.keys(MODE_LABELS) as PlayMode[]).map((candidate) => (
@@ -71,9 +71,9 @@ export function Controls(props: ControlsProps) {
         </div>
       </div>
 
-      <div className="controls-group" role="group" aria-label="Speed">
+      <div className="controls-group" role="group" aria-label="速度">
         <span className="label" id="speed-label">
-          Speed
+          速度
         </span>
         <div className="segmented" aria-labelledby="speed-label">
           {SPEEDS.map((candidate) => (
@@ -92,7 +92,7 @@ export function Controls(props: ControlsProps) {
 
       <div className="controls-group">
         <label className="label" htmlFor="seed-input">
-          Seed
+          种子
         </label>
         <input
           id="seed-input"
@@ -102,15 +102,15 @@ export function Controls(props: ControlsProps) {
           inputMode="numeric"
           autoComplete="off"
           spellCheck={false}
-          title="Fixes the ghost RNG, so the same seed replays the same game"
+          title="固定幽灵的随机数种子，相同种子会重放同一局游戏"
           value={seed}
           onChange={(event) => props.onSeed(Number(event.target.value) || 0)}
         />
       </div>
 
-      <div className="controls-group" role="group" aria-label="Session">
+      <div className="controls-group" role="group" aria-label="本局">
         <span className="label" id="session-label">
-          Session
+          本局
         </span>
         <div className="segmented" aria-labelledby="session-label">
           <button
@@ -118,24 +118,24 @@ export function Controls(props: ControlsProps) {
             className="btn"
             aria-pressed={debug}
             onClick={props.onToggleDebug}
-            title="Overlay tile coordinates, junctions, ghost targets and the pending request"
+            title="叠加显示格子坐标、路口、幽灵目标与待处理请求"
           >
-            Debug
+            调试
           </button>
           <button
             type="button"
             className="btn"
             onClick={props.onExport}
-            title="Download every decision of this session as JSON"
+            title="把本局的每一次决策导出为 JSON"
           >
-            Export JSON
+            导出 JSON
           </button>
         </div>
       </div>
 
-      <div className="controls-group" role="group" aria-label="Cabinet">
+      <div className="controls-group" role="group" aria-label="机台">
         <span className="label" id="cabinet-label">
-          Cabinet
+          机台
         </span>
         <div className="switch-row" aria-labelledby="cabinet-label">
           <button
@@ -144,12 +144,12 @@ export function Controls(props: ControlsProps) {
             aria-checked={soundOn}
             className="switch"
             onClick={props.onToggleSound}
-            title="Chomp, power pellet, ghost and death sounds — synthesized here, no audio files"
+            title="吃豆、能量豆、幽灵与被抓的音效——由代码合成，不使用音频文件"
           >
             <span className="switch-track" aria-hidden="true">
               <span className="switch-thumb" />
             </span>
-            Sound
+            音效
           </button>
           <button
             type="button"
@@ -157,7 +157,7 @@ export function Controls(props: ControlsProps) {
             aria-checked={crtOn}
             className="switch"
             onClick={props.onToggleCrt}
-            title="Scanlines and a bezel shadow over the maze"
+            title="在迷宫上叠加扫描线与机壳阴影"
           >
             <span className="switch-track" aria-hidden="true">
               <span className="switch-thumb" />

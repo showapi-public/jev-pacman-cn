@@ -22,17 +22,17 @@ export function GameHud({ ui }: { ui: UiSnapshot }) {
   return (
     <dl className={styles["hud-strip"]}>
       <div className={styles["hud-cell"]}>
-        <dt className="label">Score</dt>
+        <dt className="label">得分</dt>
         <dd className={`value ${styles["hud-value"]} ${styles["hud-score"]}`}>
-          {ui.score.toLocaleString("en-US")}
+          {ui.score.toLocaleString("zh-CN")}
         </dd>
       </div>
 
       {/* The dots are decoration; the aria-label names the readout and the
           sr-only count is the text screen readers get. */}
       <div className={styles["hud-cell"]}>
-        <dt className="label">Lives</dt>
-        <dd className={`${styles["hud-value"]} ${styles["hud-dots"]}`} aria-label="lives">
+        <dt className="label">生命</dt>
+        <dd className={`${styles["hud-value"]} ${styles["hud-dots"]}`} aria-label="生命">
           {LIFE_SLOTS.map((slot) => (
             <span
               key={slot}
@@ -41,35 +41,35 @@ export function GameHud({ ui }: { ui: UiSnapshot }) {
               className={styles["hud-life"]}
             />
           ))}
-          <span className="sr-only">{lives === 1 ? "1 life left" : `${lives} lives left`}</span>
+          <span className="sr-only">剩余 {lives} 条命</span>
         </dd>
       </div>
 
       <div className={styles["hud-cell"]}>
-        <dt className="label">Pellets left</dt>
+        <dt className="label">剩余豆子</dt>
         <dd className={`value ${styles["hud-value"]}`}>
           {ui.pelletsRemaining + ui.powerPelletsRemaining}
-          <span className="muted"> · {ui.pelletsEaten} eaten</span>
+          <span className="muted"> · 已吃 {ui.pelletsEaten}</span>
         </dd>
       </div>
 
       <div className={styles["hud-cell"]}>
-        <dt className="label">Ghosts eaten</dt>
+        <dt className="label">吃到幽灵</dt>
         <dd className={`value ${styles["hud-value"]}`}>
           {ui.ghostsEaten}
           {frightened > 0 ? (
-            <span className={styles["hud-frightened"]}> · {frightened} frightened</span>
+            <span className={styles["hud-frightened"]}> · {frightened} 个受惊</span>
           ) : null}
         </dd>
       </div>
 
       <div className={styles["hud-cell"]}>
-        <dt className="label">Survival</dt>
+        <dt className="label">存活时长</dt>
         <dd className={`value ${styles["hud-value"]}`}>{formatMs(ui.playTimeMs)}</dd>
       </div>
 
       <div className={styles["hud-cell"]}>
-        <dt className="label">Level</dt>
+        <dt className="label">关卡</dt>
         <dd className={`value ${styles["hud-value"]}`}>{ui.level}</dd>
       </div>
     </dl>

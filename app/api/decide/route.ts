@@ -45,7 +45,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     body = await request.json();
   } catch {
-    return fail(400, "bad_request", "invalid JSON body");
+    return fail(400, "bad_request", "JSON 请求体无法解析");
   }
 
   const decisionId = typeof body?.decisionId === "string" ? body.decisionId : null;
@@ -54,9 +54,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     : [];
   const observation = body?.observation;
 
-  if (!decisionId) return fail(400, "bad_request", "missing decisionId");
-  if (legalDirections.length === 0) return fail(400, "bad_request", "no legal directions");
-  if (typeof observation !== "object" || observation === null) return fail(400, "bad_request", "missing observation");
+  if (!decisionId) return fail(400, "bad_request", "缺少 decisionId");
+  if (legalDirections.length === 0) return fail(400, "bad_request", "没有任何合法方向");
+  if (typeof observation !== "object" || observation === null) return fail(400, "bad_request", "缺少 observation");
 
   if (process.env.JEV_MOCK === "true") {
     const direction = mockChoice(decisionId, legalDirections);
@@ -71,13 +71,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   if (!process.env.TYPESAFE_API_KEY?.trim()) {
-    return fail(503, "no_api_key", "TYPESAFE_API_KEY is not set (see .env.example)");
+    return fail(503, "no_api_key", "未设置 TYPESAFE_API_KEY（参见 .env.example）");
   }
 
   const candidates = (observation.candidates ?? {}) as Partial<Record<Direction, CandidateAnalysis>>;
   const criteria = buildCriteria(candidates, legalDirections);
   if (Object.keys(criteria).length === 0) {
-    return fail(400, "bad_request", "observation carried no candidate facts");
+    return fail(400, "bad_request", "observation 未携带任何候选事实");
   }
 
   const started = performance.now();
@@ -93,7 +93,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const direction = answer?.choice;
 
     if (!isDirection(direction)) {
-      return fail(502, "invalid", `Jev answered ${String(direction)}, which is not a direction`);
+      return fail(502, "invalid", `Jev 给出的答案是 ${String(direction)}，不是一个方向`);
     }
 
     return NextResponse.json({
