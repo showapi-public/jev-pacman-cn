@@ -39,7 +39,7 @@ type ConsoleTab = "HISTORY" | "CONFIDENCE" | "METRICS" | "STATE";
  *
  * Derived from the column's own arithmetic rather than picked by eye. Measured,
  * the column is `viewport - 52px header - 32px padding` tall, and the panel
- * header (36), the decision card (342) and its rule (1) take 379 of that; the
+ * header (36), the decision card (~290, after compact dl layout) and its rule (1) take ~327 of that; the
  * chart register takes another 173. What is left is the tab strip's 32px trigger
  * row plus the history list. Three rows is the least that is still worth reading,
  * which needs 120px of list — so the chart keeps its own place from 780px of

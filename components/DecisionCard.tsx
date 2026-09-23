@@ -120,7 +120,7 @@ export function DecisionCard({ snapshot, decision, steerable, onSteer }: Decisio
         </div>
       </div>
 
-      <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-micro">
+      <dl className="m-0 min-h-8 flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-micro">
         <Cell label="决策">
           {decision ? `#${decision.decisionId} · 世代 ${decision.epoch}` : "暂无决策"}
         </Cell>
@@ -143,9 +143,6 @@ export function DecisionCard({ snapshot, decision, steerable, onSteer }: Decisio
       ) : null}
       {decision && decision.status !== "APPLIED" && decision.status !== "PENDING" && decision.note ? (
         <p className="m-0 text-micro text-fg-3">{decision.note}</p>
-      ) : null}
-      {decision?.status === "PENDING" ? (
-        <p className="m-0 text-micro text-warn">答案还在路上。</p>
       ) : null}
 
       <Collapsible className="flex flex-col gap-2">
@@ -218,12 +215,12 @@ export function DecisionCard({ snapshot, decision, steerable, onSteer }: Decisio
   );
 }
 
-/** One `label · value` pair of the decision's metadata. */
+/** One `label · value` pair of the decision's metadata, wrapped in a div for flex flow. */
 function Cell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <>
-      <dt className="label m-0">{label}</dt>
-      <dd className="num m-0 truncate text-fg-2">{children}</dd>
-    </>
+    <div className="flex items-baseline gap-1.5">
+      <dt className="label m-0 shrink-0">{label}</dt>
+      <dd className="num m-0 text-fg-2">{children}</dd>
+    </div>
   );
 }

@@ -35,11 +35,33 @@ export interface ConfidenceChartProps {
   points: readonly DecisionPoint[];
 }
 
+/**
+ * The minimum span the x axis must show (in decision-index units) so that a
+ * session with only a couple of data points does not stretch them across the
+ * full width.  Data fills from left to right, and once the span exceeds this
+ * value the axis grows naturally.  When the series window slides (old points
+ * are dropped by `decisionSeries`), the axis slides with it.
+ */
+const MIN_X_SPAN = 20;
+
 export default function ConfidenceChart({ points }: ConfidenceChartProps) {
   const last = points.at(-1);
   const meanConfidence = mean(
     points.map((point) => point.confidence).filter((value): value is number => value !== null),
   );
+
+  const firstIdx = points[0]?.index ?? 1;
+  const lastIdx = last?.index ?? 1;
+  const span = lastIdx - firstIdx;
+  const displaySpan = Math.max(span, MIN_X_SPAN);
+  const xDomainEnd = firstIdx + displaySpan;
+
+  const tickStep = displaySpan > 40 ? 10 : 5;
+  const xTicks: number[] = [];
+  const tickStart = Math.ceil(firstIdx / tickStep) * tickStep;
+  for (let t = Math.max(tickStart, tickStep); t <= xDomainEnd; t += tickStep) {
+    xTicks.push(t);
+  }
 
   /*
    * The chart is an image, not a widget. Every point it draws is also a row in
@@ -71,11 +93,11 @@ export default function ConfidenceChart({ points }: ConfidenceChartProps) {
           <XAxis
             dataKey="index"
             type="number"
-            domain={["dataMin", "dataMax"]}
+            domain={[firstIdx, xDomainEnd]}
             tick={{ fill: "var(--text-quaternary)", fontSize: 10 }}
             tickLine={false}
             axisLine={{ stroke: "var(--border-subtle)" }}
-            tickCount={5}
+            ticks={xTicks}
             allowDecimals={false}
           />
           {/*
