@@ -120,7 +120,7 @@ export function DecisionCard({ snapshot, decision, steerable, onSteer }: Decisio
         </div>
       </div>
 
-      <dl className="m-0 min-h-8 flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-micro">
+      <dl className="m-0 min-h-9 flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-micro">
         <Cell label="决策">
           {decision ? `#${decision.decisionId} · 世代 ${decision.epoch}` : "暂无决策"}
         </Cell>
