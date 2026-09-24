@@ -89,7 +89,20 @@ export interface GameState {
 }
 ```
 
-吃豆人的 `GameState` 已经全部满足；蛇的 `SnakeState` 照此实现。
+吃豆人的状态类型改名为 `PacmanState`（**纯改名**：同名会让 `GameDefinition<PacmanState>` 没法写），
+`GameStatus` 改为从本文件转出、取消重复定义；蛇的 `SnakeState` 照此实现。
+
+元数据也在这里，且**无泛型** —— 导航首页、头部切换器与路由表都能直接用它：
+
+```ts
+export interface GameMeta {
+  readonly id: string;             // 路由段与注册键：小写、URL 安全
+  readonly name: string;           // 游戏名
+  readonly tagline: string;        // 一句话标语
+  readonly decisionShape: string;  // 该游戏的决策形态一句话（导航卡第三行）
+  readonly selfColor: string;      // 自身色的 CSS 变量引用，挂到 --self
+}
+```
 
 ### 3.3 决策点：一个标量距离，吃掉两个游戏的差异
 
@@ -103,7 +116,7 @@ export interface DecisionPoint {
   /** 决策地点（格），只用于展示。吃豆人 = 路口；蛇 = 蛇头当前格。 */
   at: { x: number; y: number } | null;
   /** 合法动作。吃豆人剔掉墙；蛇剔掉 180° 反向。 */
-  actions: ActionId[];
+  actions: readonly ActionId[];
   /** 距该决策点还有多少格。吃豆人 = 到路口的格数；蛇 = 到下次移动的剩余比例（0..1）。 */
   distance: number;
   /** 是否已抵达：此刻就必须定下来。 */
@@ -181,7 +194,7 @@ export interface Question {
   /** 系统提示词：这款游戏的目标与优先级。 */
   instructions: string;
   /** 共享指标行 × 合法动作列。 */
-  facts: FactRow[];
+  facts: readonly FactRow[];
 }
 ```
 
@@ -193,7 +206,7 @@ export interface Question {
 
 ```ts
 export interface GameDefinition<S extends GameState> {
-  readonly meta: GameMeta;          // id / 名称 / 标语 / 数据色 / 动作词表
+  readonly meta: GameMeta;          // id / 名称 / 标语 / 决策形态 / 自身色
   readonly agent: GameDriver<S>;
   readonly vocab: ActionVocab;
 
@@ -209,12 +222,24 @@ export interface GameDefinition<S extends GameState> {
   /** 事件 → 音效与粒子。表现层，改不了玩法。 */
   react(events: readonly GameEvent[], state: S, fx: FxSink): void;
 
-  /** 手挑权重的对照玩家（非学习），供「启发式」模式。 */
-  heuristic(request: DecideRequest): ActionId;
+  /**
+   * 手挑权重的对照玩家（非学习），供「启发式」模式。
+   *
+   * 它是**游戏代码**：直接读完整状态即可，不必经过观察（那是给模型的）——
+   * 让启发式去解 `DecideRequest` 只会逼出一个 cast。
+   */
+  heuristic(state: S, point: DecisionPoint, actions: readonly ActionId[]): ActionId;
   /** 导出 JSON 里的游戏侧汇总。 */
   summary(state: S): Record<string, number | string | null>;
 }
 ```
+
+`GameEvent` 是 `{ readonly type: string }`：框架只读 `type`（写日志、导出 JSON），
+其余字段由各游戏自定，只有该游戏自己的 `react` 与文案函数会解释它们。
+`GameStatus`（五态）、`GameState`（六个字段）、`Observation`、`RecentDecision`、`DecideRequest`、
+`PaintView`、`FxSink` 同样定义在 `lib/games/types.ts`，即设计文档 §3 的全部契约都在这个文件里；
+`lib/agent/types.ts` 只保留 agent 自己的东西（`DecisionProvider`、`DecideError`、
+`DecisionTelemetry`、`AgentMetrics`、`ControllerSnapshot`）并**转出**它需要的那几个契约。
 
 ### 3.7 右栏的接缝：`ConsoleInput`
 

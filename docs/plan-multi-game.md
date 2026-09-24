@@ -106,19 +106,35 @@ P3 才引入第二个实现，此时契约已被一个真实游戏打磨过一�
 
 ### P2-1 契约层：`lib/games/types.ts` + `lib/games/registry.ts`
 
-- 新建 `lib/games/types.ts`：`ActionId` / `GameStatus` / `GameState` / `ActionVocab` / `GameMeta` /
-  `DecisionPoint` / `FactRow` / `Question` / `Observation` / `GameDriver<S>` / `GameDefinition<S>` /
-  `PaintView` / `FxSink` —— 即 `design-multi-game.md` §3 的全部契约。
+- 新建 `lib/games/types.ts`：`ActionId` / `ActionVocab` / `GameStatus` / `GameState` / `GameEvent` /
+  `GameMeta` / `DecisionPoint` / `FactRow` / `Question` / `Observation` / `RecentDecision` /
+  `DecideRequest` / `GameDriver<S>` / `GameDefinition<S>` / `PaintView` / `FxSink`
+  —— 即 `design-multi-game.md` §3 的全部契约。
 - 新建 `lib/games/registry.ts`：`GAME_META: readonly GameMeta[]`（**只有元数据、无泛型**）+ `getGameMeta(id)`。
 - 约束：`lib/games/*` 与 `lib/agent/*` **必须 React-free**（测试是 node 环境、无 jsdom）；
-  `Observation` 是 `Readonly<Record<string, unknown>>` 形态的不透明 JSON，不出现 `any`。
+  `Observation` 是 `Record<string, unknown>` 形态的不透明 JSON，不出现 `any`。
+- **偏差（执行时调整）**：`lib/games/pacman/meta.ts` 也在这里建（原排在 P2-2）。
+  理由：注册表若空着，`tests/games-registry.test.ts` 的「id 唯一 / 字段齐全」全变成空转，
+  等于写了一个通过但什么也没验的测试；先把元数据（纯数据、零消费者）放进来，断言当场就有效。
+  P2-2 因此不再建 `meta.ts`。
+- **偏差（执行时调整）**：`GameMeta` 定为 `{ id, name, tagline, decisionShape, selfColor }`
+  —— 比 §3.6 的注释多一个 `decisionShape`，因为设计规范 §2.5 的导航卡第三行要写「决策形态一句话」。
+  `GameDefinition.heuristic` 的签名从 `(request: DecideRequest)` 改成
+  `(state: S, point: DecisionPoint, actions: readonly ActionId[])`：启发式玩家是**游戏代码**，
+  直接读完整状态即可，让它去解 `DecideRequest` 里那份给模型的观察只会逼出一个 cast。
 
-**验收**：`tsc` 干净（此任务纯新增，零消费者，测试不变）。新增 `tests/games-registry.test.ts`：
-id 唯一、元数据字段齐全（名称/标语/自身色/动作词表）。
+**验收**：`tsc` 干净（此任务纯新增，零消费者，既有测试不变）。新增 `tests/games-registry.test.ts`：
+表非空、id 唯一且 URL 安全、`name`/`tagline`/`decisionShape` 非空无首尾空白、
+`selfColor` 是 `var(--…)` 形态、`getGameMeta` 命中与未命中两条路径。
 
-### P2-2 吃豆人 driver：`lib/games/pacman/{meta.ts,facts.ts,agent.ts}`
+### P2-2 吃豆人 driver：`lib/games/pacman/{facts.ts,agent.ts,index.ts}`
 
-把散在 `lib/agent/` 里的吃豆人知识收敛成 `PACMAN_DRIVER: GameDriver<PacmanState>`：
+**第一步是纯改名**（行为零变化，先单独跑一遍 `tsc` + `vitest` 确认仍绿）：
+`lib/games/pacman/types.ts` 的 `GameState` → `PacmanState`、`GameEvent` → `PacmanEvent`
+（否则与 `lib/games/types.ts` 的同名契约撞车，`GameDefinition<PacmanState>` 写不出来）；
+`GameStatus` 改为从 `../types` 转出，取消重复定义。`meta.ts` 已在 P2-1 建好。
+
+然后把散在 `lib/agent/` 里的吃豆人知识收敛成 `PACMAN: GameDefinition<PacmanState>`：
 
 | 来源 | 去处 | 动作 |
 | --- | --- | --- |
