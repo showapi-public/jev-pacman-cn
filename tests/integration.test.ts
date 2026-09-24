@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { AgentController } from "@/lib/agent/controller";
 import { createHeuristicProvider, createRandomProvider } from "@/lib/agent/providers";
 import type { DecisionProvider } from "@/lib/agent/types";
-import { createGame, startGame, stepGame } from "@/lib/game/engine";
-import { DIRECTION_ORDER, FIXED_DT_MS, tileOf } from "@/lib/game/types";
+import { createGame, startGame, stepGame } from "@/lib/games/pacman/engine";
+import { DIRECTION_ORDER, FIXED_DT_MS, tileOf } from "@/lib/games/pacman/types";
 import { VirtualClock, flush, virtualLatencyProvider } from "./helpers";
 
 /** Latencies to rehearse: fast, ordinary, slow, and slower than the timeout. */

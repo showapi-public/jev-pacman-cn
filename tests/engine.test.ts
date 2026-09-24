@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createGame, defaultMaze, startGame, stepGame } from "@/lib/game/engine";
-import { bfs } from "@/lib/game/pathfinding";
+import { createGame, defaultMaze, startGame, stepGame } from "@/lib/games/pacman/engine";
+import { bfs } from "@/lib/games/pacman/pathfinding";
 import {
   DEATH_PAUSE_MS,
   FIXED_DT_MS,
@@ -12,7 +12,7 @@ import {
   STARTING_LIVES,
   tileKey,
   tileOf,
-} from "@/lib/game/types";
+} from "@/lib/games/pacman/types";
 import { keepPellets, makeGhost, miniGame, placePacman, putGhosts, stepTicks, tile } from "./helpers";
 
 function ticksFor(milliseconds: number): number {

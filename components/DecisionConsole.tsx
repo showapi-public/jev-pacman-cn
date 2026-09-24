@@ -11,7 +11,7 @@ import { Chip } from "@/components/ui/chip";
 import { Panel, PanelActions, PanelDivider, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { decisionSeries, type DecisionPoint } from "@/lib/agent/telemetry";
-import type { Direction } from "@/lib/game/types";
+import type { Direction } from "@/lib/games/pacman/types";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { controllerStatus, formatLatency, formatPercent, type UiSnapshot } from "@/lib/ui";
 

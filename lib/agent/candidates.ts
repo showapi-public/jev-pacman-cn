@@ -7,8 +7,8 @@
  * using a Choice question here.
  */
 
-import type { CandidateAnalysis } from "../game/analysis";
-import type { Direction, GameState } from "../game/types";
+import type { CandidateAnalysis } from "../games/pacman/analysis";
+import type { Direction, GameState } from "../games/pacman/types";
 
 export interface Candidate {
   direction: Direction;

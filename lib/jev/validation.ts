@@ -6,8 +6,8 @@
  * actually on offer.
  */
 
-import type { Direction } from "../game/types";
-import { DIRECTION_ORDER } from "../game/types";
+import type { Direction } from "../games/pacman/types";
+import { DIRECTION_ORDER } from "../games/pacman/types";
 import type { DecideRequest, DecisionResult } from "../agent/types";
 
 export function isDirection(value: unknown): value is Direction {

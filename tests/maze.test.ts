@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { MAZE_ROWS, parseMaze } from "@/lib/game/maze";
-import type { TileKind, TilePosition } from "@/lib/game/types";
+import { MAZE_ROWS, parseMaze } from "@/lib/games/pacman/maze";
+import type { TileKind, TilePosition } from "@/lib/games/pacman/types";
 
 const WIDTH = 28;
 const HEIGHT = 31;

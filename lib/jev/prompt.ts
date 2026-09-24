@@ -7,8 +7,8 @@
  */
 
 import { candidateText } from "../agent/candidates";
-import type { CandidateAnalysis } from "../game/analysis";
-import type { Direction } from "../game/types";
+import type { CandidateAnalysis } from "../games/pacman/analysis";
+import type { Direction } from "../games/pacman/types";
 
 export const QUESTION_ID = "direction";
 

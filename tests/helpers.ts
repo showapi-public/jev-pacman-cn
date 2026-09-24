@@ -5,8 +5,8 @@
 
 import type { DecisionProvider, DecideRequest, DecisionResult } from "@/lib/agent/types";
 import { DecideError } from "@/lib/agent/types";
-import { createGame, stepGame } from "@/lib/game/engine";
-import { parseMaze } from "@/lib/game/maze";
+import { createGame, stepGame } from "@/lib/games/pacman/engine";
+import { parseMaze } from "@/lib/games/pacman/maze";
 import type {
   Direction,
   GameState,
@@ -15,8 +15,8 @@ import type {
   GhostState,
   Maze,
   TilePosition,
-} from "@/lib/game/types";
-import { FIXED_DT_MS, tileCenter, tileKey } from "@/lib/game/types";
+} from "@/lib/games/pacman/types";
+import { FIXED_DT_MS, tileCenter, tileKey } from "@/lib/games/pacman/types";
 
 /**
  * A 13 x 9 corridor maze: two vertical corridors (x = 1 and x = 11) joined by

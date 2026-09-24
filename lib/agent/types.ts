@@ -7,8 +7,8 @@
  * dumb fallback and says so out loud.
  */
 
-import type { Direction, GameEvent, GameState, GhostMode, TilePosition } from "../game/types";
-import type { CandidateAnalysis } from "../game/analysis";
+import type { Direction, GameEvent, GameState, GhostMode, TilePosition } from "../games/pacman/types";
+import type { CandidateAnalysis } from "../games/pacman/analysis";
 
 /* ------------------------------------------------------------- observation */
 

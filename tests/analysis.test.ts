@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DANGER_RADIUS, analyzeCandidates } from "@/lib/game/analysis";
+import { DANGER_RADIUS, analyzeCandidates } from "@/lib/games/pacman/analysis";
 import { keepPellets, makeGhost, miniGame, putGhosts, tile } from "./helpers";
 
 /**

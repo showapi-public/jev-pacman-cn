@@ -7,10 +7,10 @@
  * they only keep the game alive for one junction, and every use is logged.
  */
 
-import type { Direction, GameState, TilePosition } from "../game/types";
-import { DIRECTION_ORDER, neighbor, oppositeDirection } from "../game/types";
-import { bfs } from "../game/pathfinding";
-import { isDangerousGhost } from "../game/analysis";
+import type { Direction, GameState, TilePosition } from "../games/pacman/types";
+import { DIRECTION_ORDER, neighbor, oppositeDirection } from "../games/pacman/types";
+import { bfs } from "../games/pacman/pathfinding";
+import { isDangerousGhost } from "../games/pacman/analysis";
 
 export interface FallbackChoice {
   direction: Direction;

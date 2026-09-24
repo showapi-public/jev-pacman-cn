@@ -28,8 +28,8 @@ import { createHeuristicProvider, createRandomProvider } from "@/lib/agent/provi
 import { computeMetrics, recentFeed } from "@/lib/agent/telemetry";
 import type { DecisionProvider } from "@/lib/agent/types";
 import { SOUND_STORAGE_KEY, SoundBoard } from "@/lib/audio/sfx";
-import { createGame, pauseGame, requestDirection, resumeGame, startGame } from "@/lib/game/engine";
-import type { Direction, GameEvent, GameState } from "@/lib/game/types";
+import { createGame, pauseGame, requestDirection, resumeGame, startGame } from "@/lib/games/pacman/engine";
+import type { Direction, GameEvent, GameState } from "@/lib/games/pacman/types";
 import { createJevProvider } from "@/lib/jev/client";
 import {
   GAME_STATUS_TONE,

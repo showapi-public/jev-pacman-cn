@@ -3,7 +3,8 @@
 > 本文是 `docs/design-system.md` 的**前置**：先定「界面之外的骨架」（游戏契约、目录结构、路由、
 > 模型目录、API 契约），再由它推导出对设计规范的增量。两者冲突时，以设计规范里的视觉条目为准。
 
-状态：**待评审**（评审通过后按 `docs/plan-multi-game.md` 执行）
+状态：**已批准**（2026-09-24），执行计划见 `docs/plan-multi-game.md`（P0 文档 → P1 搬家 → P2 契约化 → P3 接蛇）。
+已拍板：§8 的三处不诚实**一起修**；两个游戏的默认速度都是 **1×**；提交时机由你决定（每阶段收口后汇报）。
 
 ---
 
@@ -124,6 +125,9 @@ export interface DecisionPoint {
 | 提交窗口 `commitWindow` | 0.15 格 | 0.05 格 |
 | 墙钟预算 `budgetMs` | **500 ms** | **500 ms** |
 
+两个游戏的**默认速度都是 1×**，所以默认口径下 500 ms 就是实际可用窗口 —— 跨游戏比较延迟才成立；
+速度倍率会**等比压缩**这个窗口（2× 时只有一半时间作答），见 §8。
+
 **控制器里那段预取/提交逻辑一行都不用改**——只是把 `findNextDecisionPoint` 换成了
 `driver.decision(state)`。这正是本次重构成立的关键。
 
@@ -134,7 +138,7 @@ export interface GameDriver<S extends GameState> {
   /** 此刻应该瞄准的决策点；null = 不需要决策（走道 / 唯一活路 / 未开局）。 */
   decision(state: S): DecisionPoint | null;
 
-  /** 预取距离（游戏空间，格），墙钟预算 = prefetch / 速度。 */
+  /** 预取距离（游戏空间，格）。**有效预取 = prefetch × speed**，见 §8。 */
   readonly prefetch: number;
   /** 提交窗口（游戏空间，格）：再近就必须定下来。 */
   readonly commitWindow: number;
@@ -431,7 +435,7 @@ POST /api/decide
 
 ---
 
-## 8. 顺带修掉的一处不诚实（需确认）
+## 8. 顺带修掉的一处不诚实（已确认：一起修）
 
 设计规范 §6.5 说延迟直方图 500 ms 那条边「等于 `DECISION_DEADLINE_MS`」，控件提示说
 「速度只影响游戏推进的快慢，不影响决策的判定时限」。**两句都不完全成立**：

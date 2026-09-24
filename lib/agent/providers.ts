@@ -6,9 +6,9 @@
  * junction is the fallback, which is logged and dumb on purpose.
  */
 
-import type { CandidateAnalysis } from "../game/analysis";
-import { DIRECTION_ORDER, nextRandom } from "../game/types";
-import type { Direction } from "../game/types";
+import type { CandidateAnalysis } from "../games/pacman/analysis";
+import { DIRECTION_ORDER, nextRandom } from "../games/pacman/types";
+import type { Direction } from "../games/pacman/types";
 import type { DecideRequest, DecisionProvider, DecisionResult } from "./types";
 
 function answer(

@@ -3,13 +3,13 @@ import { describe, expect, it } from "vitest";
 import { AgentController } from "@/lib/agent/controller";
 import { computeMetrics, latencyHistogram, mean, overDeadlineCount, percentile } from "@/lib/agent/telemetry";
 import type { DecisionTelemetry } from "@/lib/agent/types";
-import { startGame, stepGame } from "@/lib/game/engine";
+import { startGame, stepGame } from "@/lib/games/pacman/engine";
 import {
   DECISION_DEADLINE_MS,
   DECISION_PREFETCH_TILES,
   FIXED_DT_MS,
   PACMAN_SPEED_TILES_PER_SEC,
-} from "@/lib/game/types";
+} from "@/lib/games/pacman/types";
 import { ManualProvider, flush, keepPellets, miniGame, placePacman, tile } from "./helpers";
 
 /** A minimal record; only the fields an assertion reads need to be right. */

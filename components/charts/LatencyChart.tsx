@@ -4,7 +4,7 @@ import * as React from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from "recharts";
 
 import { overDeadlineCount, type LatencyBucket } from "@/lib/agent/telemetry";
-import { DECISION_DEADLINE_MS } from "@/lib/game/types";
+import { DECISION_DEADLINE_MS } from "@/lib/games/pacman/types";
 
 /**
  * Where the answer times land: one bar per fixed bucket.

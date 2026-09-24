@@ -3,7 +3,7 @@
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Minus } from "@phosphor-icons/react";
 
 import type { DecisionTelemetry } from "@/lib/agent/types";
-import type { Direction } from "@/lib/game/types";
+import type { Direction } from "@/lib/games/pacman/types";
 import { DIRECTION_LABELS, formatLatency, formatPercent, telemetryStatus, type Tone } from "@/lib/ui";
 import { Chip } from "@/components/ui/chip";
 

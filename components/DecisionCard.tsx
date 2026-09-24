@@ -7,8 +7,8 @@ import { ProbabilityBars } from "@/components/ProbabilityBars";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { ControllerSnapshot } from "@/lib/agent/controller";
 import type { DecisionTelemetry } from "@/lib/agent/types";
-import type { CandidateAnalysis } from "@/lib/game/analysis";
-import type { Direction } from "@/lib/game/types";
+import type { CandidateAnalysis } from "@/lib/games/pacman/analysis";
+import type { Direction } from "@/lib/games/pacman/types";
 import { DIRECTION_LABELS, formatLatency, formatPercent, formatValue } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 

@@ -22,7 +22,7 @@ const GHOSTS = [
   { piece: "frightened", name: "受惊幽灵", note: "吃到能量豆后短暂可被反吃" },
 ] as const;
 
-/** The canvas's palette, by name. Mirrors the literals in lib/game/render.ts. */
+/** The canvas's palette, by name. Mirrors the literals in lib/games/pacman/render.ts. */
 const PIECE_COLOR: Record<(typeof GHOSTS)[number]["piece"], string> = {
   pacman: "var(--pacman)",
   blinky: "var(--ghost-blinky)",

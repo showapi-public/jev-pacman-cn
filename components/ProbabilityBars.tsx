@@ -2,7 +2,7 @@
 
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from "@phosphor-icons/react";
 
-import type { Direction } from "@/lib/game/types";
+import type { Direction } from "@/lib/games/pacman/types";
 import { DIRECTION_LABELS, formatPercent } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 

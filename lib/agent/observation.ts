@@ -6,11 +6,11 @@
  * ghosts are, and one block of code-computed facts per legal direction.
  */
 
-import type { CandidateAnalysis } from "../game/analysis";
-import { bfs } from "../game/pathfinding";
-import { occupiedTile } from "../game/collision";
-import type { Direction, GameState, TilePosition } from "../game/types";
-import { DIRECTION_ORDER } from "../game/types";
+import type { CandidateAnalysis } from "../games/pacman/analysis";
+import { bfs } from "../games/pacman/pathfinding";
+import { occupiedTile } from "../games/pacman/collision";
+import type { Direction, GameState, TilePosition } from "../games/pacman/types";
+import { DIRECTION_ORDER } from "../games/pacman/types";
 import type { GhostObservation, JevObservation, RecentDecision } from "./types";
 
 export const OBJECTIVE = "Survive and maximize Pac-Man's score.";

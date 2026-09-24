@@ -5,9 +5,9 @@ import { computeMetrics } from "@/lib/agent/telemetry";
 import type { DecisionProvider } from "@/lib/agent/types";
 import { createJevProvider } from "@/lib/jev/client";
 import { validateDecision } from "@/lib/jev/validation";
-import { startGame, stepGame } from "@/lib/game/engine";
-import type { Direction } from "@/lib/game/types";
-import { FIXED_DT_MS } from "@/lib/game/types";
+import { startGame, stepGame } from "@/lib/games/pacman/engine";
+import type { Direction } from "@/lib/games/pacman/types";
+import { FIXED_DT_MS } from "@/lib/games/pacman/types";
 import { flush, keepPellets, miniGame, placePacman } from "./helpers";
 
 /**

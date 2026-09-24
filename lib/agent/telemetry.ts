@@ -5,7 +5,7 @@
  * numbers on screen are computed from those records — not estimated.
  */
 
-import { DECISION_DEADLINE_MS, type GameState } from "../game/types";
+import { DECISION_DEADLINE_MS, type GameState } from "../games/pacman/types";
 import type { DecisionTelemetry } from "./types";
 
 export interface Metrics {

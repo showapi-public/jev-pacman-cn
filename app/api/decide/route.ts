@@ -17,9 +17,9 @@ import {
   type EntryType,
 } from "@typesafe-ai/sdk";
 
-import type { CandidateAnalysis } from "@/lib/game/analysis";
-import { DIRECTION_ORDER } from "@/lib/game/types";
-import type { Direction } from "@/lib/game/types";
+import type { CandidateAnalysis } from "@/lib/games/pacman/analysis";
+import { DIRECTION_ORDER } from "@/lib/games/pacman/types";
+import type { Direction } from "@/lib/games/pacman/types";
 import { isDirection } from "@/lib/jev/validation";
 import { DECISION_INSTRUCTIONS, QUESTION_ID, buildCriteria } from "@/lib/jev/prompt";
 

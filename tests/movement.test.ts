@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { startGame } from "@/lib/game/engine";
-import { actorTile } from "@/lib/game/movement";
-import { FIXED_DT_MS, PACMAN_SPEED_TILES_PER_SEC, tileOf } from "@/lib/game/types";
+import { startGame } from "@/lib/games/pacman/engine";
+import { actorTile } from "@/lib/games/pacman/movement";
+import { FIXED_DT_MS, PACMAN_SPEED_TILES_PER_SEC, tileOf } from "@/lib/games/pacman/types";
 import { miniGame, miniMaze, placePacman, stepTicks, tile } from "./helpers";
 
 describe("movement", () => {

@@ -5,7 +5,7 @@
 import type { ControllerSnapshot, ControllerStatus } from "./agent/controller";
 import type { Metrics } from "./agent/telemetry";
 import type { DecisionTelemetry, TelemetryStatus } from "./agent/types";
-import type { Direction, GameEvent, GameStatus } from "./game/types";
+import type { Direction, GameEvent, GameStatus } from "./games/pacman/types";
 
 export type PlayMode = "JEV" | "MANUAL" | "RANDOM" | "HEURISTIC";
 

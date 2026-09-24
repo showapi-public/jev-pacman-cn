@@ -11,19 +11,19 @@
  *    deliberately dumb fallback fires and the record says FALLBACK.
  */
 
-import { analyzeCandidates } from "../game/analysis";
-import { requestDirection } from "../game/engine";
-import { distanceToTileCenter } from "../game/movement";
-import { findNextDecisionPoint, getMeaningfulDirections } from "../game/pathfinding";
-import type { Direction, GameState, TilePosition } from "../game/types";
+import { analyzeCandidates } from "../games/pacman/analysis";
+import { requestDirection } from "../games/pacman/engine";
+import { distanceToTileCenter } from "../games/pacman/movement";
+import { findNextDecisionPoint, getMeaningfulDirections } from "../games/pacman/pathfinding";
+import type { Direction, GameState, TilePosition } from "../games/pacman/types";
 import {
   DECISION_PREFETCH_TILES,
   DECISION_TIMEOUT_MS,
   MIN_JEV_INTERVAL_MS,
   neighbor,
   tileKey,
-} from "../game/types";
-import { ghostTarget } from "../game/ghosts";
+} from "../games/pacman/types";
+import { ghostTarget } from "../games/pacman/ghosts";
 import { chooseFallback } from "./fallback";
 import { buildObservation } from "./observation";
 import { MAX_RECENT_DECISIONS } from "./observation";

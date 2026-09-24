@@ -1,0 +1,320 @@
+# 多游戏 / 多模型 实现计划
+
+> 依据：`docs/design-multi-game.md`（架构决策）与 `docs/design-system.md`（视觉唯一权威）。
+> 本文是**执行清单**：每个任务都给到文件路径与可复跑的验收动作，任何一条不绿不进下一步。
+
+状态：**已批准**（2026-09-24），按本文顺序执行
+基线：HEAD `6ce9646`，工作区干净；`npx tsc --noEmit` 无输出；`npx vitest run` 118/120
+（`tests/jev-live.test.ts` 2 项因模型侧 502 失败，属外部原因，与本次重构无关）。
+
+**已拍板的四个决策**（2026-09-24）：
+
+| # | 决策 | 结论 |
+| --- | --- | --- |
+| 1 | 本计划 | **批准**，按 P0 → P1 → P2 → P3 → P4 顺序执行 |
+| 2 | 三处「不诚实」 | **一起修**（有效预取 = `prefetch × speed`、截止线 = `budgetMs ÷ speed`、提示文案改实话） |
+| 3 | 默认速度 | **两个游戏都是 1×**（预算与文档口径一致、跨游戏可比） |
+| 4 | 提交 | **不自动提交**：每阶段收口后把改动范围、验证结果与建议的提交信息交给你，由你决定何时提交 |
+
+---
+
+## 0. 执行纪律（每个阶段都适用）
+
+1. **收口三件套**：`npx tsc --noEmit`（必须无输出）→ `npx vitest run --reporter=dot`（live 两项除外必须全绿）
+   → 涉及界面的阶段再走一遍浏览器实测。
+2. **界面实测口径**（`design-system.md` §10 逐条）：
+   - `JEV_MOCK=true npm run dev`（确定性后端，免模型不稳定干扰）；
+   - 走 `web-access` 的 CDP 代理（端口 3456），**量数据前先 `Page.reload`**（HMR 滞后）；
+   - 先把其它标签页关掉把目标页置前（后台页 `document.hidden === true`，游戏循环会正确暂停）；
+   - Tab/分段控件必须用真实指针事件（`/clickAt`），合成 `click()` 无效。
+3. **不自动提交**。每个阶段收口后，把「改了哪些文件 + 验证结果 + 建议的提交信息」整理给你，
+   由你决定何时提交；建议信息：P1 = `重构：吃豆人引擎搬到 lib/games/pacman（纯路径变更）`、
+   P2 = `重构：多游戏契约与外壳（吃豆人迁入 /pacman）`、P3 = `feat：接入贪吃蛇（多游戏架构验证）`。
+4. **不做顺手重构**：每个任务只做清单里写的事，发现的其它问题记进 `docs/review.md` 留到最后一阶段。
+5. 交付前最后一次：`CODEBUDDY_SAFE_DELETE_ENABLED=0 npm run build`（沙箱批量删除守卫会拦收尾清理）。
+
+---
+
+## 1. 阶段与任务总览
+
+| 序 | 任务 | 阶段 | 依赖 |
+| --- | --- | --- | --- |
+| P0-1 | 更新设计规范（7 处增量） | 0 文档先行 | — |
+| P1-1 | 纯搬家 `lib/game` → `lib/games/pacman` | 1 搬家 | P0-1 |
+| P2-1 | 契约层 `lib/games/{types,registry}.ts` | 2 契约化 | P1-1 |
+| P2-2 | 吃豆人 driver（meta / facts / agent） | 2 | P2-1 |
+| P2-3 | 泛型化 agent 层 + 速度语义修正 | 2 | P2-2 |
+| P2-4 | jev 层泛型化 + API v2 + 模型目录 | 2 | P2-3 |
+| P2-5 | 右栏 `components/console/*` + `--self` | 2 | P2-4 |
+| P2-6 | 外壳 `components/shell/*` + 会话 hook + 路由 + 吃豆人页面 | 2 | P2-5 |
+| P2-7 | **Phase 2 收口验证（吃豆人）** | 2 | P2-6 |
+| P3-1 | 贪吃蛇引擎（纯函数 + 种子确定性，TDD） | 3 蛇 | P2-7 |
+| P3-2 | 贪吃蛇 agent 侧（决策/观察/事实表/兜底，TDD） | 3 | P3-1 |
+| P3-3 | 贪吃蛇渲染 / 画布 / 面板 / 注册 | 3 | P3-2 |
+| P3-4 | **Phase 3 收口验证（蛇 + 导航首页）** | 3 | P3-3 |
+| P4-1 | 文档收尾、设计规范复检、代码审查 | 4 收尾 | P3-4 |
+
+**为什么是这个顺序**：P1 只动路径、行为零变化，用来**证明 120 项测试仍然可信**；P2 每一步都让
+「泛型化的层」有唯一的真实消费者（吃豆人）并保持编译，避免出现「半泛型化」的中间态长驻；
+P3 才引入第二个实现，此时契约已被一个真实游戏打磨过一遍。
+
+---
+
+## 2. Phase 0 —— 文档先行
+
+### P0-1 更新设计规范：多游戏增量
+
+按项目约定「改动前先改 `docs/design-system.md`」。7 处增量（编号对应 `design-multi-game.md` §7.4）：
+
+| # | 位置 | 改什么 |
+| --- | --- | --- |
+| 1 | §1 这个界面是什么 | 「一台机台 + 一块仪表盘」→「**一个游戏台**：导航首页 + 每游戏一台机台 + 一块共用的模型仪表盘」；两条主线保留，不再绑在吃豆人上 |
+| 2 | §2 布局规范 | 新增 **§2.5 导航页**：`min-h-dvh` 流式壳、不复用锁高度的 `.app-shell`、「只有一层滚动条」不变式照旧 |
+| 3 | §4.2 颜色含义 | 新增 **`--self` 每局自身色**规则与「游戏数据色」表（吃豆人=琥珀、蛇=蛇头绿、新增 3 个蛇数据 token）；措辞从「琥珀 = 吃豆人本体」改成「各游戏自身色 = 该游戏画布主角色」；强调色仍只有靛蓝 |
+| 4 | §6.1 | 「方向十字 `DirectionCompass`」→「**动作盘 `ActionCompass`**」，由 `ActionVocab` 驱动；非四向游戏 `slot()` 返回 `null` 时自带动作盘 |
+| 5 | §6.3 / §6.4 | 「推理输入」表来自 `Question.facts`（**与模型 criteria 严格同源**）；指标行中的「路口」在部分游戏里叫「格子」 |
+| 6 | §6.7 指标口径 | 增加**模型维度**：`请求数` / `来源`（怎么答的）/ `模型`（谁答的）三列的区别；补蛇的对应口径 |
+| 7 | §10 验证 | 验收清单增加：导航页、蛇页、游戏切换、模型切换（含未配置 key 的条目）四组条目 |
+
+**验收**：`grep -n` 能在这 7 处找到新措辞；文档内所有出现「方向十字」「吃豆人本体」的位置都已改口径，
+不留自相矛盾的旧句。**此任务只改文档，不碰代码**，单独提交。
+
+---
+
+## 3. Phase 1 —— 纯搬家（行为零变化）
+
+### P1-1 `lib/game/*` → `lib/games/pacman/*`
+
+1. `git mv lib/game lib/games/pacman`（保留 git 历史；目录内部是 `./xxx` 相对导入，整体移动后自动成立）。
+2. 替换全部外部引用：`@/lib/game/` → `@/lib/games/pacman/`（`app/`、`components/`、`lib/agent/*`、`lib/jev/*`、`tests/*`），
+   以及 `lib/agent/*`、`lib/jev/*` 里的相对路径 `../game/` → `../games/pacman/`。
+3. `grep -rn "lib/game/" --include='*.ts' --include='*.tsx' app components lib tests` 必须只剩 `lib/games/pacman` 形态。
+
+**验收**
+- `npx tsc --noEmit` 无输出；
+- `npx vitest run` 与基线一致（118/120）；
+- `git diff -M --stat` 显示的是改名（`R`）而不是「删 + 加」。
+
+**提交**：`重构：吃豆人引擎搬到 lib/games/pacman（纯路径变更）`
+
+---
+
+## 4. Phase 2 —— 契约化 + 吃豆人迁移
+
+> Phase 2 是本次重构的主战场。7 个任务全部在**同一个分支**上顺序做，每个任务结束后编译与测试都必须绿；
+> 中间态（例如「右栏还没泛型化但控制器已泛型化」）**不允许留在提交里**。
+
+### P2-1 契约层：`lib/games/types.ts` + `lib/games/registry.ts`
+
+- 新建 `lib/games/types.ts`：`ActionId` / `GameStatus` / `GameState` / `ActionVocab` / `GameMeta` /
+  `DecisionPoint` / `FactRow` / `Question` / `Observation` / `GameDriver<S>` / `GameDefinition<S>` /
+  `PaintView` / `FxSink` —— 即 `design-multi-game.md` §3 的全部契约。
+- 新建 `lib/games/registry.ts`：`GAME_META: readonly GameMeta[]`（**只有元数据、无泛型**）+ `getGameMeta(id)`。
+- 约束：`lib/games/*` 与 `lib/agent/*` **必须 React-free**（测试是 node 环境、无 jsdom）；
+  `Observation` 是 `Readonly<Record<string, unknown>>` 形态的不透明 JSON，不出现 `any`。
+
+**验收**：`tsc` 干净（此任务纯新增，零消费者，测试不变）。新增 `tests/games-registry.test.ts`：
+id 唯一、元数据字段齐全（名称/标语/自身色/动作词表）。
+
+### P2-2 吃豆人 driver：`lib/games/pacman/{meta.ts,facts.ts,agent.ts}`
+
+把散在 `lib/agent/` 里的吃豆人知识收敛成 `PACMAN_DRIVER: GameDriver<PacmanState>`：
+
+| 来源 | 去处 | 动作 |
+| --- | --- | --- |
+| `lib/agent/observation.ts` | 通用契约已进 `lib/games/types.ts`；吃豆人专属进 `pacman/agent.ts` | 拆分 |
+| `lib/agent/candidates.ts` | `lib/games/pacman/facts.ts` | **重写为 `FactRow[]`**（6–8 行、中英双标签、`values: Record<ActionId,string>`） |
+| `lib/agent/fallback.ts` | `pacman/agent.ts` 的 `fallback()` | 平移，返回 `{ action, rule }` |
+| `app/page.tsx` 里的 debug 覆盖数据 | `pacman/agent.ts` 的 `debug()` | 平移 |
+
+`decision()` 用既有的 `findNextDecisionPoint` / `distanceToTileCenter` 实现 §3.3 的映射表
+（`key = epoch:tileKey`、`distance = 到路口格数`、`prefetch = 3`、`commitWindow = 0.15`、`budgetMs = 500`）。
+**旧文件此时先不删**（还有消费者），在 P2-3 一并删。
+
+**验收**：`tsc` 干净；新增 `tests/pacman-driver.test.ts` —— 有路口时才返回决策点、无路口返回 `null`、
+`actions` 不含墙、`facts` 每行的 `values` 键集 === `point.actions`、`criteria` 由 `facts` 拍平后与旧
+`candidates` 文案等价（逐行比对）。既有 `observation.test.ts` 仍绿。
+
+### P2-3 泛型化 agent 层 + 速度语义修正
+
+- `lib/agent/controller.ts`：`AgentController<S extends GameState>`，构造注入 `GameDriver<S>`；
+  **删除**对 `findNextDecisionPoint` / `distanceToTileCenter` / `ghostTarget` 的直接 import。
+  预取/提交/超时/世代作废那段逻辑**一行不改**，只把「算下一个决策点」换成 `driver.decision(state)`。
+- **速度语义修正**（`design-multi-game.md` §8）：有效预取 = `driver.prefetch × speed`，
+  新增 `setSpeed(speed)`，墙钟预算随速度等比压缩。
+- `lib/agent/telemetry.ts`：拆出 `AgentMetrics`（**不再吃 `GameState`**）；
+  `latencyHistogram(records, deadlineMs)`、`overDeadlineCount(records, deadlineMs)` 参数化截止线；
+  直方图**分桶边保持固定**（1× 参照系，跨局/跨游戏可比）。
+- `lib/agent/types.ts`：`Direction` → `ActionId`、`JevObservation` → `Observation`、
+  `DecideRequest { actions, instructions, facts, modelId? }`、`DecisionTelemetry` 增加
+  `at` / `pointKey` / `model` / `legalActions`。
+- `lib/agent/providers.ts`：`random` 改用 `legalActions`；`heuristic` 改为注入 `chooser`；
+  `scripted` 改为按 `pointKey` 取脚本（录放不再依赖方向枚举）。
+- 删除已迁空的 `lib/agent/{observation,fallback,candidates}.ts`。
+
+**验收**：`tests/controller.test.ts`（10 项，改用**假游戏驱动**）+ `telemetry.test.ts`（16 项）
++ `providers` 相关用例全绿；新增用例断言：**预取随速度缩放、`budgetMs` 与速度无关、
+提交窗口处强制提交、`epoch` 变化后旧答案被丢弃**。
+
+### P2-4 jev 层泛型化 + API v2 + 模型目录
+
+- `lib/jev/prompt.ts`：只剩「`facts` → `criteria`」装配与系统提示词拼接，
+  问题文案游戏无关（不再点名 Pac-Man，改由 `Question.instructions` 提供）。
+- `lib/jev/validation.ts`：`isDirection` → `actions.includes(...)`。
+- `lib/jev/client.ts`：透传 `modelId`。
+- 新建 `lib/jev/models.ts`（**server-only**）：解析 `JEV_MODELS="id|显示名|baseURL|apiKey|模型名;..."`
+  （空字段继承 `TYPESAFE_*`），未设时合成唯一条目 `{ id:"default", label: <模型名> }` 保证**今天的
+  `.env.local` 不改一行仍能跑**；`JEV_DEFAULT_MODEL` 指定默认；每次请求读 `process.env`，模块级不缓存。
+- `app/api/decide/route.ts` 改 v2 载荷 `{ decisionId, game, modelId?, state, actions, instructions, facts }`；
+  `mockChoice` 改为按 `actions` 的**到达顺序**取哈希（不再依赖 `DIRECTION_ORDER`）。
+- 新建 `app/api/models/route.ts`：`GET` 返回 `{ default, models:[{ id, label, note, configured }] }`
+  —— **绝不含 apiKey / baseURL**。
+
+**验收**：`tests/{jev-client,jev-game,integration}.test.ts` 改到 v2 后全绿；新增
+`tests/models.test.ts`：解析含空字段继承、空 key（`configured:false`）、脏条目的容错，
+且**脱敏结果里 grep 不到任何 key/baseURL 片段**。
+
+### P2-5 右栏泛型化 + `--self` 自身色
+
+- `components/DirectionCompass.tsx` → `components/console/ActionCompass.tsx`：吃 `ActionVocab`，
+  箭头按 `slot()` 映射（新增 `console/ActionGlyph.tsx`）；`slot()` 为 `null` 时不进十字。
+- `components/console/DecisionCard.tsx`：「推理输入」表改为渲染 `Question.facts`；
+  「来源」格拆成「**模型 · 来源**」两格（对应遥测的 `model` 与 `source`）。
+- `components/console/{DecisionTimeline,SessionStats,ProbabilityBars,ConfidenceTrend,DebugPane,DecisionConsole}.tsx`：
+  类型改 `ActionId` + `vocab.label`；`DecisionConsole` 的 props **收窄为 `ConsoleInput`（零游戏知识）**。
+- `--self` 落在：得分主读数、动作盘选中键与细条、概率阶梯选中行、时间线占比条、置信度图「选项占比」序列。
+- `SessionStats` 截止线标注改为 `budgetMs / speed`，`withinDeadline` 按实际截止线判定。
+
+**验收**：`tests/ui.test.ts` 全绿；`grep -rn "Direction\b" components lib --include='*.tsx' --include='*.ts'`
+除 `lib/games/pacman/*` 外无残留；组件里不出现写死方向字面量。**此任务结束时不改 app/page.tsx 的行为**
+（仍是一条真值链路），只需编译与测试绿。
+
+> 注：`SessionStats` 与控制条的组件级断言受限于「测试环境无 jsdom」，本阶段以 `tsc` + 浏览器实测兜底，
+> 若需要组件级断言，会在 P2-7 收口时单独提出来问你（是否引入 DOM 测试环境，属项目级决定）。
+
+### P2-6 外壳、会话 hook 与多游戏路由
+
+- `components/shell/`：`AppShell.tsx`（头部 + 两栏栅格 + skip link，`--self` 挂这里）、
+  `GameSwitcher.tsx`（复用既有 Dialog 原语，**不新增 Radix 依赖**；含「返回游戏导航首页」）、
+  `ModelPicker.tsx`（`localStorage` 键 `jev:model`；非模型模式 `disabled` 并说明原因）、
+  `MeterStrip.tsx`（6 列布局原语）、`ControlBar.tsx`、`GameNavCard.tsx`。
+- `lib/use-game-session.ts`：把今天 `app/page.tsx` 的状态/控制器/循环接线搬进来（泛型 `S`）。
+- `components/games/`：`pacman/{GameCanvas,PacmanMeters,PacmanHelp}.tsx`（从
+  `PacmanCanvas` / `GameMeters` / `HelpDialog` 拆出，循环与画布尺寸逻辑保持原样）、
+  `pages.tsx`（`GAME_PAGES`：**唯一把引擎与 UI 缝在一起的地方**）。
+- 路由：`app/[game]/page.tsx`（`generateStaticParams` 来自 `GAME_META`，未知 id → `notFound`）、
+  `app/page.tsx`（导航首页；`GAME_META.length === 1` 时直接渲染那个游戏）、
+  `app/layout.tsx`（metadata 模板 `Jev 游戏台` / `%s · Jev 游戏台`）。
+- **写死色清零**：`grep -rn "#[0-9a-fA-F]\{6\}" components --include='*.tsx'` 只应剩 `globals.css` 的令牌来源。
+
+**验收**：`tsc` + `vitest` 全绿；吃豆人的 URL 从 `/` 变为 `/pacman`，`/` 是导航首页（当前 1 个游戏时直达）。
+
+**提交**：`重构：多游戏契约与外壳（吃豆人迁入 /pacman）`
+
+### P2-7 Phase 2 收口验证（吃豆人）
+
+`JEV_MOCK=true npm run dev` + CDP 代理，在 **1280×720 与 1440×900** 两个尺寸下逐条走：
+
+- 全页**有且只有一层滚动条**（`document.documentElement.scrollHeight === clientHeight`，且面板内 `.scroll-area` 是唯一滚动容器）；
+- 画布 `可见高度 ÷ 画布自身高度 === 1`（不被裁切）；
+- 开始 / 暂停 / 重开 / 切玩家 / 切模型（**切模型即重开一局**）/ 开「更多」/ 开「推理输入」/ 开调试 / 导出 JSON 全部正常；
+- 「推理输入」表的行与模型 criteria **逐行一致**（同一对象，无漂移）；
+- 控制台无报错；键序符合规范 §10。
+
+**提交**：验证若发现修复，随修复一起提交，信息写明修了什么。
+
+---
+
+## 5. Phase 3 —— 贪吃蛇
+
+### P3-1 引擎（TDD，先写测试）
+
+新建 `lib/games/snake/{types.ts,engine.ts,analysis.ts}`：固定 **24×24** 盘面、`MOVE_MS = 500` 固定步长
++ 累加器、双端队列身体、禁止 180° 反向（首步例外）、每食 **+5 节**、撞墙/咬到自己即死
+（**尾巴让出的那格算合法**）、无空格放食物即胜（`CLEARED`）、`mulberry32` 种子放食物、长度记
+`localStorage`（仅在 UI 层）。
+
+**验收**：先写 `tests/snake-engine.test.ts` 再实现 —— 移动、增长 +5、撞墙、自撞、尾巴让位、
+胜利、**同 seed 重放结果逐帧一致**。
+
+### P3-2 agent 侧（TDD）
+
+`lib/games/snake/agent.ts`：
+
+- `decision()`：每步一个决策点，`key = epoch:moveIndex`，`distance = (MOVE_MS − accum) / MOVE_MS`，
+  `actions` 排除反向，**唯一活路不提问**；`prefetch = 1`、`commitWindow = 0.05`、`budgetMs = 500`
+  （与吃豆人同为 500ms，跨游戏延迟才可直接比较）。
+- `observe()`：目标一句话、盘面尺寸、蛇头、朝向、**有序蛇身 `[x,y][]`**（游戏状态本身，抽掉不可解）、
+  食物与 BFS 距离、长度、已吃、已走步数、剩余空格。
+- `frame()`：6 行 `FactRow`（立刻致命 / 该方向可达空格数 flood fill / 距食物 / 是否沿朝向 /
+  该方向自由度 / 蛇长）。
+- `fallback()`：4 条 1-ply 规则（保持朝向 → 唯一安全 → 可达空格最多 → 全致命则按当前朝向）。
+- `heuristic()`：只考虑安全动作，在「可达空格数」与「距食物」间加权，并列按固定动作顺序。
+
+**验收**：`tests/snake-agent.test.ts` 断言 —— `actions` 排除反向、facts 6 行齐、
+**criteria 与 facts 严格一致**、兜底永不选立刻致命的动作（除非全致命）、同 seed 下
+启发式与随机玩家的决策序列可复现。
+
+### P3-3 渲染 / 画布 / 面板 / 注册
+
+- `lib/games/snake/{render.ts,meta.ts,index.ts}`：canvas 画 24×24 盘面（`--bg-well` 作底、
+  蛇身圆角方块、蛇头更亮、食物小圆、`prefers-reduced-motion` 下食物不脉动）。
+- `app/globals.css` 新增数据色 token `--snake-head` / `--snake-body` / `--snake-food`，并映射 `--self`。
+- `components/games/snake/{SnakeCanvas,SnakeMeters,SnakeHelp}.tsx`：仪表条 6 格
+  （长度（主读数）/ 吃到食物 / 已走步数 / 存活时长 / 剩余空格 / 历史最长）。
+- 注册进 `GAME_META` 与 `GAME_PAGES`（**新增游戏 = 加一个目录 + 两条注册**，不新建页面文件）。
+
+**验收**：`tsc` + `vitest` 全绿；`tests/games-registry.test.ts` 扩展到「每个 id 在 `GAME_PAGES` 里都有实现」。
+
+### P3-4 Phase 3 收口验证（蛇 + 导航首页）
+
+- `/snake`：对局能推进、决策逐条进历史、预算 500ms、全页只有一层滚动条、画布不被裁切、
+  导出 JSON 含 `game` 与 `model`、切模型即重开一局；
+- `/`：两张游戏卡可进、键序正确、只有一层滚动条；
+- 两游戏互切、来回切换后状态不串（各自 `epoch`/历史独立）。
+
+**提交**：`feat：接入贪吃蛇（多游戏架构验证）`
+
+---
+
+## 6. Phase 4 —— 收尾
+
+### P4-1 文档、复检与审查
+
+- 复检 `docs/design-system.md` 与实际实现一致，尤其 §2.2 单滚动条、§6.7 口径表、§10 验收清单**逐条实跑**；
+- `README.md` 与 `docs/example-session.json` 更新到 v2 导出形状（含 `game` / `model`）；
+- 写 `docs/review.md`（Critical / Major / Minor 分级）与 `docs/final-report-multi-game.md`；
+- 把「多游戏可插拔架构」的落地流程沉淀成可复用 skill。
+
+**验收**：本次改动的每条需求都有对应的实测证据（命令 + 观察值），写在 `final-report` 里。
+
+---
+
+## 7. 已拍板的两件事（影响 P2-3 与 P2-5）
+
+### 决策 ①：三处「不诚实」——**一起修**
+
+设计规范 §6.5 与控件提示当前都不完全成立：控制器按**游戏空间** 3 格预取提问，而速度倍率改的是游戏时钟，
+默认 **0.5×** 时覆盖 3 格需要 **1000ms 墙钟**，不是 500ms —— 于是「500ms 截止」只在 1× 成立，
+默认速度下「执行率」被系统性高估。
+
+**结论：修**，三处一起改（设计规范已在 P0-1 改完）：
+
+1. 有效预取 = `driver.prefetch × speed`（永远尽早问）—— P2-3；
+2. 直方图**分桶边固定**（1× 参照系），**截止线 = `budgetMs ÷ speed`** 并标注实际毫秒数 —— P2-5；
+3. 控件提示改成「速度会等比压缩局面推进与决策窗口：2× 时模型只有一半的时间作答」—— P2-6。
+
+### 决策 ②：默认速度 ——**两个游戏都 1×**
+
+预算与文档口径一致、跨游戏可比（蛇 1× = 500ms、吃豆人 1× = 500ms）。
+代价是吃豆人比现在快一倍（观感不如 0.5× 从容），如实接受。
+
+---
+
+## 8. 明确不做（本轮）
+
+- 排行榜 / 跨局持久化对比（导出 JSON 之外的持久化）；
+- 非四向动作空间的游戏（`ActionVocab.slot()` 已留出口，不实现）；
+- 多游戏同屏对比；
+- 包名与 `deploy/` 目录改名（避免把娱乐性重命名混进部署变更）；
+- 引入新的 Radix 依赖（切换器用既有 Dialog 原语）。

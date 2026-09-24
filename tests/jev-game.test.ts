@@ -12,8 +12,8 @@ import { describe, expect, it } from "vitest";
 import { POST } from "@/app/api/decide/route";
 import { AgentController } from "@/lib/agent/controller";
 import { computeMetrics } from "@/lib/agent/telemetry";
-import { createGame, startGame, stepGame } from "@/lib/game/engine";
-import { FIXED_DT_MS } from "@/lib/game/types";
+import { createGame, startGame, stepGame } from "@/lib/games/pacman/engine";
+import { FIXED_DT_MS } from "@/lib/games/pacman/types";
 import { createJevProvider } from "@/lib/jev/client";
 
 const hasKey = Boolean(process.env.TYPESAFE_API_KEY?.trim());

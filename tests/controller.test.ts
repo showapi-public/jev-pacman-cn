@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { AgentController } from "@/lib/agent/controller";
 import { computeMetrics } from "@/lib/agent/telemetry";
-import { respawnActors, startGame, stepGame } from "@/lib/game/engine";
-import { FIXED_DT_MS, tileOf } from "@/lib/game/types";
+import { respawnActors, startGame, stepGame } from "@/lib/games/pacman/engine";
+import { FIXED_DT_MS, tileOf } from "@/lib/games/pacman/types";
 import { ManualProvider, flush, keepPellets, miniGame, placePacman, tile, virtualLatencyProvider, VirtualClock } from "./helpers";
 
 /**

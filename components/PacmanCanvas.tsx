@@ -11,7 +11,7 @@ import { useEffect, useRef } from "react";
 
 import type { AgentController } from "@/lib/agent/controller";
 import type { SoundBoard } from "@/lib/audio/sfx";
-import { stepGame } from "@/lib/game/engine";
+import { stepGame } from "@/lib/games/pacman/engine";
 import {
   addBurst,
   addConfetti,
@@ -23,12 +23,12 @@ import {
   freezeFor,
   isFrozen,
   stepJuice,
-} from "@/lib/game/juice";
-import { EFFECT_COLORS, TILE, drawGame, ghostColor } from "@/lib/game/render";
-import { FIXED_DT_MS } from "@/lib/game/types";
-import type { GameEvent, GameState } from "@/lib/game/types";
+} from "@/lib/games/pacman/juice";
+import { EFFECT_COLORS, TILE, drawGame, ghostColor } from "@/lib/games/pacman/render";
+import { FIXED_DT_MS } from "@/lib/games/pacman/types";
+import type { GameEvent, GameState } from "@/lib/games/pacman/types";
 import { isAiMode, type PlayMode } from "@/lib/ui";
-import type { JuiceState } from "@/lib/game/juice";
+import type { JuiceState } from "@/lib/games/pacman/juice";
 
 /** Never simulate more than this per frame: a hidden tab must not fast-forward. */
 const MAX_STEPS_PER_FRAME = 3;

@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { buildCriteria, candidateText } from "@/lib/agent/candidates";
 import { buildObservation } from "@/lib/agent/observation";
 import type { JevObservation } from "@/lib/agent/types";
-import { analyzeCandidates } from "@/lib/game/analysis";
+import { analyzeCandidates } from "@/lib/games/pacman/analysis";
 import { DECISION_INSTRUCTIONS, QUESTION_ID, buildCriteria as buildQuestionCriteria } from "@/lib/jev/prompt";
 import { isDirection, validateDecision } from "@/lib/jev/validation";
-import type { Direction } from "@/lib/game/types";
+import type { Direction } from "@/lib/games/pacman/types";
 import { keepPellets, makeGhost, miniGame, putGhosts, tile } from "./helpers";
 
 function sampleObservation(): JevObservation {

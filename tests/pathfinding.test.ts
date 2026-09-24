@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultMaze } from "@/lib/game/engine";
-import { houseExitTile } from "@/lib/game/ghosts";
+import { defaultMaze } from "@/lib/games/pacman/engine";
+import { houseExitTile } from "@/lib/games/pacman/ghosts";
 import {
   bfs,
   findNextDecisionPoint,
@@ -10,7 +10,7 @@ import {
   getMeaningfulDirections,
   isDecisionPoint,
   shortestPathDistance,
-} from "@/lib/game/pathfinding";
+} from "@/lib/games/pacman/pathfinding";
 import { miniMaze, tile } from "./helpers";
 
 const maze = miniMaze();

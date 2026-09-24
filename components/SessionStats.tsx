@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import type { Metrics } from "@/lib/agent/telemetry";
 import { latencyHistogram } from "@/lib/agent/telemetry";
 import type { DecisionTelemetry } from "@/lib/agent/types";
-import { DECISION_DEADLINE_MS, DECISION_TIMEOUT_MS } from "@/lib/game/types";
+import { DECISION_DEADLINE_MS, DECISION_TIMEOUT_MS } from "@/lib/games/pacman/types";
 import { formatLatency, formatPercent } from "@/lib/ui";
 
 /**

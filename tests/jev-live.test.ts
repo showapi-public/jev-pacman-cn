@@ -11,11 +11,11 @@ import { describe, expect, it } from "vitest";
 
 import { POST } from "@/app/api/decide/route";
 import { buildObservation } from "@/lib/agent/observation";
-import { analyzeCandidates } from "@/lib/game/analysis";
-import { createGame, startGame, stepGame } from "@/lib/game/engine";
-import { findNextDecisionPoint, getMeaningfulDirections } from "@/lib/game/pathfinding";
-import type { Direction, TilePosition } from "@/lib/game/types";
-import { FIXED_DT_MS } from "@/lib/game/types";
+import { analyzeCandidates } from "@/lib/games/pacman/analysis";
+import { createGame, startGame, stepGame } from "@/lib/games/pacman/engine";
+import { findNextDecisionPoint, getMeaningfulDirections } from "@/lib/games/pacman/pathfinding";
+import type { Direction, TilePosition } from "@/lib/games/pacman/types";
+import { FIXED_DT_MS } from "@/lib/games/pacman/types";
 import { isDirection } from "@/lib/jev/validation";
 
 const hasKey = Boolean(process.env.TYPESAFE_API_KEY?.trim());
