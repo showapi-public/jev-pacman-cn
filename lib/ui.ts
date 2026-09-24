@@ -1,11 +1,15 @@
 /**
- * View types and small formatters shared by the page and its panels.
+ * Shared copy and formatters, plus the page's own view type.
+ *
+ * Nothing here knows a game. The two things that used to make it game-aware are
+ * gone: the direction vocabulary (the action words now come from each game's
+ * `ActionVocab`, and the icons from `components/console/ActionGlyph`) and the
+ * event sentences (`lib/games/<game>/copy.ts`).
  */
 
 import type { ControllerSnapshot, ControllerStatus } from "./agent/controller";
-import type { Metrics } from "./agent/telemetry";
-import type { DecisionTelemetry, TelemetryStatus } from "./agent/types";
-import type { Direction, GameEvent, GameStatus } from "./games/pacman/types";
+import type { ActionId, TelemetryStatus } from "./agent/types";
+import type { GameStatus } from "./games/types";
 
 export type PlayMode = "JEV" | "MANUAL" | "RANDOM" | "HEURISTIC";
 
@@ -29,6 +33,13 @@ export const STATUS_LABELS: Record<GameStatus, string> = {
 
 export const SPEEDS = [0.5, 1, 2] as const;
 
+/**
+ * The game page's own view type: the game's scoreboard plus the controller.
+ *
+ * Only the shell reads it. Everything the right column needs travels in
+ * `ConsoleInput` (`components/console/input.ts`) — the two overlap in
+ * `controller`, and nothing else.
+ */
 export interface UiSnapshot {
   status: GameStatus;
   score: number;
@@ -40,26 +51,7 @@ export interface UiSnapshot {
   ghostsEaten: number;
   playTimeMs: number;
   controller: ControllerSnapshot;
-  metrics: Metrics;
-  feed: DecisionTelemetry[];
-  /** Recent game events, newest first, already formatted for display. */
-  events: string[];
 }
-
-export const KEY_DIRECTIONS: Record<string, Direction> = {
-  ArrowUp: "UP",
-  ArrowDown: "DOWN",
-  ArrowLeft: "LEFT",
-  ArrowRight: "RIGHT",
-};
-
-/** The four directions, in words, wherever the UI shows one to a human. */
-export const DIRECTION_LABELS: Record<Direction, string> = {
-  UP: "上",
-  DOWN: "下",
-  LEFT: "左",
-  RIGHT: "右",
-};
 
 /**
  * Elapsed time as a running clock — the shape a stopwatch shows, for things
@@ -82,8 +74,8 @@ export function formatMs(milliseconds: number): string {
 /**
  * A duration you compare against other durations, so the unit never changes
  * with the magnitude: always milliseconds, up to a second, then seconds with
- * one decimal. The Jev timeout is 2000 ms, so the seconds branch is the common
- * case on a slow link, not an edge case.
+ * one decimal. The decision timeout is 1500 ms, so the seconds branch is the
+ * common case on a slow link, not an edge case.
  */
 export function formatLatency(milliseconds: number | null | undefined): string {
   if (milliseconds === null || milliseconds === undefined || !Number.isFinite(milliseconds)) return "—";
@@ -101,29 +93,6 @@ export function formatPercent(fraction: number | null | undefined, digits = 0): 
   return `${(fraction * 100).toFixed(digits)}%`;
 }
 
-export function describeEvent(event: GameEvent): string {
-  switch (event.type) {
-    case "PELLET_EATEN":
-      return `在 (${event.tile.x}, ${event.tile.y}) 吃到豆子 +${event.score}`;
-    case "POWER_PELLET_EATEN":
-      return `在 (${event.tile.x}, ${event.tile.y}) 吃到能量豆 +${event.score}`;
-    case "GHOST_EATEN":
-      return `${event.ghost} 被吃掉 +${event.score}`;
-    case "PACMAN_DIED":
-      return `吃豆人被抓住，剩余 ${event.livesLeft} 条命`;
-    case "LEVEL_CLEARED":
-      return `第 ${event.level} 关通过`;
-    case "FRIGHTENED_STARTED":
-      return `幽灵进入受惊状态 ${(event.durationMs / 1000).toFixed(0)} 秒`;
-    case "FRIGHTENED_ENDED":
-      return "幽灵恢复正常";
-    case "GHOST_RELEASED":
-      return `${event.ghost} 离开鬼屋`;
-    case "GAME_OVER":
-      return "游戏结束";
-  }
-}
-
 export function isAiMode(mode: PlayMode): boolean {
   return mode !== "MANUAL";
 }
@@ -139,7 +108,7 @@ export function isAiMode(mode: PlayMode): boolean {
 /** What the controller is doing right now, in words. */
 export const CONTROLLER_STATUS_LABELS: Record<ControllerStatus, string> = {
   MANUAL: "手动驾驶",
-  IDLE: "路口之间",
+  IDLE: "决策点之间",
   REQUESTING: "正在询问 Jev",
   READY: "答案已到手",
   OFFLINE: "离线",
@@ -197,7 +166,7 @@ export function controllerStatus(snapshot: {
  * while the agent is still being asked (and as soon as it answers), red for
  * every answer that did not land in time.
  */
-export function telemetryStatus(status: TelemetryStatus, choice: Direction | null): {
+export function telemetryStatus(status: TelemetryStatus, choice: ActionId | null): {
   label: string;
   tone: Tone;
 } {
@@ -225,4 +194,3 @@ export const GAME_STATUS_TONE: Record<GameStatus, Tone> = {
   GAME_OVER: "bad",
   CLEARED: "accent",
 };
-

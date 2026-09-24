@@ -12,7 +12,9 @@ import { describe, expect, it } from "vitest";
 import { POST } from "@/app/api/decide/route";
 import { AgentController } from "@/lib/agent/controller";
 import { computeMetrics } from "@/lib/agent/telemetry";
+import { PACMAN_DRIVER } from "@/lib/games/pacman/agent";
 import { createGame, startGame, stepGame } from "@/lib/games/pacman/engine";
+import { PACMAN_META } from "@/lib/games/pacman/meta";
 import { FIXED_DT_MS } from "@/lib/games/pacman/types";
 import { createJevProvider } from "@/lib/jev/client";
 
@@ -27,6 +29,8 @@ const inProcessFetch: typeof fetch = async (input, init) =>
 describe.skipIf(!hasKey)("live game", () => {
   it(`plays ${GAME_SECONDS} seconds with the real Jev`, async () => {
     const controller = new AgentController({
+      driver: PACMAN_DRIVER,
+      game: PACMAN_META.id,
       provider: createJevProvider("http://localhost/api/decide", inProcessFetch),
     });
     const state = createGame({ seed: 42 });
@@ -42,9 +46,10 @@ describe.skipIf(!hasKey)("live game", () => {
     }
 
     const snapshot = controller.snapshot();
-    const metrics = computeMetrics(snapshot.telemetry, state);
+    const metrics = computeMetrics(snapshot.telemetry);
     const report = {
       seed: 42,
+      game: PACMAN_META.id,
       gameSeconds: GAME_SECONDS,
       playTimeMs: state.playTimeMs,
       status: state.status,
@@ -56,8 +61,10 @@ describe.skipIf(!hasKey)("live game", () => {
       metrics,
       decisions: snapshot.telemetry.map((record) => ({
         decisionId: record.decisionId,
-        junction: `(${record.junction.x},${record.junction.y})`,
-        legal: record.legalDirections.join("/"),
+        pointKey: record.pointKey,
+        at: record.at === null ? null : `(${record.at.x},${record.at.y})`,
+        legal: record.legalActions.join("/"),
+        model: record.model,
         choice: record.choice,
         applied: record.applied,
         source: record.source,

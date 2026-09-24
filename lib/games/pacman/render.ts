@@ -6,7 +6,7 @@
  * Pac-Man maze instead of a spreadsheet.
  */
 
-import type { GameState, GhostState, TilePosition } from "./types";
+import type { PacmanState, GhostState, TilePosition } from "./types";
 import { FRIGHTENED_FLASH_MS, directionVector, tileCenter } from "./types";
 import type { JuiceState } from "./juice";
 import { shakeOffset } from "./juice";
@@ -76,7 +76,6 @@ export interface RenderOptions {
     legalDirections: string[];
     candidateTiles: TilePosition[];
     ghostTargets: TilePosition[];
-    pending: string | null;
   } | null;
 }
 
@@ -87,7 +86,7 @@ export function createCanvas(maze: { width: number; height: number }, scale = 1)
   return canvas;
 }
 
-export function drawGame(context: CanvasRenderingContext2D, state: GameState, options: RenderOptions = {}): void {
+export function drawGame(context: CanvasRenderingContext2D, state: PacmanState, options: RenderOptions = {}): void {
   const { maze } = state;
   const time = options.time ?? 0;
   const width = maze.width * TILE;
@@ -128,7 +127,7 @@ export function drawGame(context: CanvasRenderingContext2D, state: GameState, op
   }
 }
 
-function drawWalls(context: CanvasRenderingContext2D, state: GameState, time: number, neon: boolean): void {
+function drawWalls(context: CanvasRenderingContext2D, state: PacmanState, time: number, neon: boolean): void {
   const { maze } = state;
   context.lineWidth = 2.4;
   context.lineCap = "round";
@@ -184,7 +183,7 @@ function drawWalls(context: CanvasRenderingContext2D, state: GameState, time: nu
   }
 }
 
-function drawPellets(context: CanvasRenderingContext2D, state: GameState, time: number, neon: boolean): void {
+function drawPellets(context: CanvasRenderingContext2D, state: PacmanState, time: number, neon: boolean): void {
   context.shadowBlur = 0;
   context.fillStyle = neon ? neonWall(time + 460) : COLORS.pellet;
   for (const key of state.pellets) {
@@ -209,7 +208,7 @@ function drawPellets(context: CanvasRenderingContext2D, state: GameState, time: 
   context.shadowBlur = 0;
 }
 
-function drawPacman(context: CanvasRenderingContext2D, state: GameState, time: number): void {
+function drawPacman(context: CanvasRenderingContext2D, state: PacmanState, time: number): void {
   if (state.status === "GAME_OVER") return;
   const position = state.pacman.position;
   const x = position.x * TILE;
@@ -238,13 +237,13 @@ function drawPacman(context: CanvasRenderingContext2D, state: GameState, time: n
   context.restore();
 }
 
-function drawGhosts(context: CanvasRenderingContext2D, state: GameState, time: number): void {
+function drawGhosts(context: CanvasRenderingContext2D, state: PacmanState, time: number): void {
   for (const ghost of state.ghosts) {
     drawGhost(context, state, ghost, time);
   }
 }
 
-function drawGhost(context: CanvasRenderingContext2D, state: GameState, ghost: GhostState, time: number): void {
+function drawGhost(context: CanvasRenderingContext2D, state: PacmanState, ghost: GhostState, time: number): void {
   const x = ghost.position.x * TILE;
   // Attract mode: while the game waits to start, the ghosts breathe.
   const bob = state.status === "PLAYING" ? 0 : Math.sin(time / 300 + ghost.tile.x * 0.7) * TILE * 0.07;
@@ -386,7 +385,7 @@ function drawThinkingRing(context: CanvasRenderingContext2D, junction: TilePosit
   context.restore();
 }
 
-function drawDebugGrid(context: CanvasRenderingContext2D, state: GameState, options: RenderOptions): void {
+function drawDebugGrid(context: CanvasRenderingContext2D, state: PacmanState, options: RenderOptions): void {
   const info = options.debugInfo;
   context.save();
   context.shadowBlur = 0;

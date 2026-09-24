@@ -4,6 +4,7 @@ import { Flag, Ghost, Heart, Timer, Trophy } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 import { Tooltip } from "@/components/ui/tooltip";
+import type { PacmanObservation } from "@/lib/games/pacman/agent";
 import type { UiSnapshot } from "@/lib/ui";
 import { formatMs } from "@/lib/ui";
 
@@ -37,13 +38,17 @@ const LIFE_SLOTS = [0, 1, 2] as const;
 
 export function GameMeters({ ui }: { ui: UiSnapshot }) {
   const lives = Math.max(0, ui.lives);
-  const ghosts = ui.controller.lastObservation?.ghosts ?? [];
-  const frightened = ghosts.filter((ghost) => ghost.mode === "FRIGHTENED").length;
+  // The observation is opaque to the framework, so the one panel that reads a
+  // Pac-Man-shaped field out of it does the narrowing itself.
+  const observation = ui.controller.lastObservation as PacmanObservation | null;
+  const frightened = (observation?.ghosts ?? []).filter((ghost) => ghost.mode === "FRIGHTENED").length;
 
   return (
     <dl className="m-0 grid shrink-0 grid-cols-6 border-t border-subtle">
       <Meter label="得分" icon={<Trophy weight="fill" />} hint="每颗豆子、每只幽灵的累计得分。">
-        <span className="num text-kpi tracking-[-0.02em] text-pacman [text-shadow:0_0_18px_rgba(255,210,63,0.22)]">
+        {/* 主读数用本局自身色（外壳挂的 `--self`），光晕也跟着它走 —— 换游戏时这一格
+            连同它的辉光一起变色，不需要改这里的任何一行。 */}
+        <span className="num text-kpi tracking-[-0.02em] text-self [text-shadow:0_0_18px_color-mix(in_oklab,var(--self)_22%,transparent)]">
           {ui.score.toLocaleString("zh-CN")}
         </span>
       </Meter>

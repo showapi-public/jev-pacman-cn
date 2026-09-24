@@ -1,15 +1,54 @@
 import { describe, expect, it } from "vitest";
 
 import { AgentController } from "@/lib/agent/controller";
-import { computeMetrics } from "@/lib/agent/telemetry";
-import { respawnActors, startGame, stepGame } from "@/lib/games/pacman/engine";
-import { FIXED_DT_MS, tileOf } from "@/lib/games/pacman/types";
-import { ManualProvider, flush, keepPellets, miniGame, placePacman, tile, virtualLatencyProvider, VirtualClock } from "./helpers";
+import { computeMetrics, decisionWindowMs } from "@/lib/agent/telemetry";
+import type { DecisionProvider } from "@/lib/agent/types";
+import {
+  FAKE_ACTIONS,
+  FAKE_BUDGET_MS,
+  FAKE_COMMIT_WINDOW,
+  FAKE_DRIVER,
+  FAKE_GATE_INTERVAL,
+  FAKE_INSTRUCTIONS,
+  FAKE_PREFETCH,
+  ManualProvider,
+  VirtualClock,
+  fakeGame,
+  flush,
+  stepFake,
+  virtualLatencyProvider,
+} from "./helpers";
+import type { FakeState } from "./helpers";
 
 /**
  * The controller's contract, played out tick by tick: ask early, hold the
- * answer, apply it at the junction, and stay out of the game loop's way.
+ * answer, apply it at the decision point, and stay out of the game loop's way.
+ *
+ * It is exercised against `FAKE_DRIVER`, a game with one dimension and no
+ * Pac-Man in it. That is the point of the refactor: if the controller's own
+ * tests needed a junction and a ghost, the "the controller knows no game" claim
+ * would be untestable. Pac-Man's side of the seam is covered by
+ * `pacman-driver.test.ts`, and the two together by `integration.test.ts`.
  */
+
+const GAME_ID = "fake";
+
+function makeController(options: {
+  provider: DecisionProvider | null;
+  clock?: VirtualClock;
+  speed?: number;
+  timeoutMs?: number;
+}): AgentController<FakeState> {
+  return new AgentController<FakeState>({
+    driver: FAKE_DRIVER,
+    game: GAME_ID,
+    provider: options.provider,
+    speed: options.speed,
+    now: options.clock?.now,
+    scheduleTimeout: options.clock?.scheduleTimeout,
+    timeoutMs: options.timeoutMs,
+  });
+}
 
 interface RunOptions {
   ticks?: number;
@@ -17,62 +56,68 @@ interface RunOptions {
   stopWhen?: () => boolean;
 }
 
-async function run(controller: AgentController, state: ReturnType<typeof miniGame>, options: RunOptions = {}): Promise<number> {
+/** One fixed step of the game, immediately preceded by one of the controller. */
+async function run(
+  controller: AgentController<FakeState>,
+  state: FakeState,
+  options: RunOptions = {},
+): Promise<number> {
   const ticks = options.ticks ?? 400;
   for (let tick = 0; tick < ticks; tick += 1) {
     controller.tick(state);
-    stepGame(state, FIXED_DT_MS);
+    stepFake(state);
     await options.onTick?.(tick);
     if (options.stopWhen?.()) return tick;
   }
   return ticks;
 }
 
-function approachingJunction(provider: ManualProvider, state: ReturnType<typeof miniGame>): boolean {
-  return provider.pending > 0 && state.pacman.tile.x === 1 && state.pacman.tile.y === 4;
+function records(controller: AgentController<FakeState>) {
+  return controller.snapshot().telemetry;
+}
+
+function countFallbacks(controller: AgentController<FakeState>): number {
+  return records(controller).filter((record) => record.source === "FALLBACK").length;
 }
 
 describe("agent controller", () => {
-  it("asks once, holds the answer, and applies it at the junction", async () => {
-    const state = miniGame();
-    keepPellets(state, []);
-    placePacman(state, 2, 1, "LEFT"); // the walk leads through (1, 1) to the junction (1, 4)
-    startGame(state);
-
+  it("asks once, holds the answer, and applies it at the decision point", async () => {
+    const state = fakeGame();
     const provider = new ManualProvider();
-    const controller = new AgentController({ provider });
+    const controller = makeController({ provider });
 
     let responded = false;
-    const turns: { x: number; y: number }[] = [];
-
     await run(controller, state, {
       onTick: async () => {
         if (!responded && provider.pending > 0) {
           responded = true;
-          provider.respond("RIGHT");
+          provider.respond("C");
           await provider.settle();
         }
-        if (turns.length === 0 && state.pacman.direction === "RIGHT") {
-          turns.push({ x: state.pacman.position.x, y: state.pacman.position.y });
-        }
       },
-      stopWhen: () => turns.length > 0,
+      stopWhen: () => state.applied !== null,
     });
 
     expect(responded).toBe(true);
     expect(provider.calls).toHaveLength(1);
 
-    const [record] = controller.snapshot().telemetry;
+    const [record] = records(controller);
     expect(record.status).toBe("APPLIED");
-    expect(record.choice).toBe("RIGHT");
-    expect(record.junction).toEqual(tile(1, 4));
+    expect(record.choice).toBe("C");
+    expect(record.applied).toBe("C");
+    expect(record.pointKey).toBe("1:g0");
+    expect(record.at).toEqual({ x: 0, y: 0 });
+    expect(record.legalActions).toEqual([...FAKE_ACTIONS]);
     expect(record.source).toBe("JEV");
+    expect(record.model).toBe("fake");
 
-    // Applied at the junction centre, not a tile earlier.
-    expect(turns[0]?.x).toBeCloseTo(1.5, 6);
-    expect(turns[0]?.y).toBeCloseTo(4.5, 6);
+    // Applied on the gate, not a tile earlier: the run stops on the tick the
+    // action landed, and that tick began with one step left to the gate.
+    expect(state.applied).toBe("C");
+    expect(state.gates).toBe(0);
+    expect(state.distance).toBe(0);
 
-    const metrics = computeMetrics(controller.snapshot().telemetry, state);
+    const metrics = computeMetrics(records(controller));
     expect(metrics.requests).toBe(1);
     expect(metrics.applied).toBe(1);
     expect(metrics.fallbacks).toBe(0);
@@ -80,125 +125,90 @@ describe("agent controller", () => {
   });
 
   it("never stops the game while it waits", async () => {
-    const state = miniGame();
-    keepPellets(state, []);
-    placePacman(state, 2, 1, "LEFT");
-    startGame(state);
-
+    const state = fakeGame();
     const provider = new ManualProvider();
-    const controller = new AgentController({ provider });
-    const positions: string[] = [];
+    const controller = makeController({ provider });
+    const distances: number[] = [];
 
     await run(controller, state, {
       onTick: () => {
-        if (provider.pending > 0) {
-          positions.push(`${state.pacman.position.x.toFixed(2)},${state.pacman.position.y.toFixed(2)}`);
-        }
+        if (provider.pending > 0) distances.push(state.distance);
       },
-      stopWhen: () => positions.length > 5,
+      stopWhen: () => distances.length > 5,
     });
 
-    // The answer is still in flight, and Pac-Man has kept moving regardless.
+    // The answer is still in flight, and the walk has kept going regardless.
     expect(provider.pending).toBe(1);
-    expect(new Set(positions).size).toBeGreaterThanOrEqual(4);
+    expect(new Set(distances).size).toBeGreaterThanOrEqual(4);
     expect(state.status).toBe("PLAYING");
   });
 
-  it("falls back when the junction arrives before the answer", async () => {
-    const state = miniGame();
-    keepPellets(state, []);
-    placePacman(state, 2, 1, "LEFT"); // arrives at (1, 4) heading DOWN: keep heading is DOWN
-    startGame(state);
-
+  it("falls back when the gate arrives before the answer", async () => {
+    const state = fakeGame();
     const provider = new ManualProvider();
-    const controller = new AgentController({ provider });
+    const controller = makeController({ provider });
 
-    const fallbackSeen = { value: false };
-    await run(controller, state, {
-      onTick: () => {
-        if (controller.snapshot().telemetry.some((record) => record.source === "FALLBACK")) fallbackSeen.value = true;
-      },
-      stopWhen: () => fallbackSeen.value,
-    });
+    await run(controller, state, { stopWhen: () => countFallbacks(controller) > 0 });
 
-    expect(fallbackSeen.value).toBe(true);
     expect(provider.calls).toHaveLength(1);
 
-    const records = controller.snapshot().telemetry;
-    const jevRecord = records.find((record) => record.source === "JEV");
-    const fallbackRecord = records.find((record) => record.source === "FALLBACK");
+    const jevRecord = records(controller).find((record) => record.source === "JEV");
+    const fallbackRecord = records(controller).find((record) => record.source === "FALLBACK");
 
     expect(jevRecord?.status).toBe("STALE");
-    expect(jevRecord?.note).toContain("抵达路口");
-    expect(fallbackRecord?.applied).toBe("DOWN");
-    expect(fallbackRecord?.note).toBe("保持当前朝向");
-    expect(state.pacman.direction).toBe("DOWN");
+    expect(jevRecord?.note).toContain("抵达");
+    expect(fallbackRecord?.applied).toBe("B");
+    expect(fallbackRecord?.note).toBe("假游戏兜底");
+    expect(state.applied).toBe("B");
     expect(state.status).toBe("PLAYING");
   });
 
   it("throws away an answer that arrives after the fallback", async () => {
-    const state = miniGame();
-    keepPellets(state, []);
-    placePacman(state, 2, 1, "LEFT");
-    startGame(state);
-
+    const state = fakeGame();
     const provider = new ManualProvider();
-    const controller = new AgentController({ provider });
+    const controller = makeController({ provider });
 
-    await run(controller, state, {
-      stopWhen: () => controller.snapshot().telemetry.some((record) => record.source === "FALLBACK"),
-    });
+    await run(controller, state, { stopWhen: () => countFallbacks(controller) > 0 });
 
-    provider.respond("RIGHT"); // far too late to matter
+    provider.respond("C"); // far too late to matter
     await provider.settle();
-    await run(controller, state, { ticks: 60 });
+    await run(controller, state, { ticks: 20 });
 
-    const records = controller.snapshot().telemetry;
-    const jevRecord = records.find((record) => record.source === "JEV");
+    const jevRecord = records(controller).find((record) => record.source === "JEV");
     expect(jevRecord?.status).toBe("STALE");
-    expect(jevRecord?.choice).toBe("RIGHT"); // recorded, but never applied
+    expect(jevRecord?.choice).toBe("C"); // recorded, but never applied
     expect(jevRecord?.applied).toBeNull();
-    expect(records.some((record) => record.status === "APPLIED" && record.source === "JEV")).toBe(false);
+    expect(records(controller).some((record) => record.status === "APPLIED" && record.source === "JEV")).toBe(false);
   });
 
-  it("refuses an answer that is not one of the legal directions", async () => {
-    const state = miniGame();
-    keepPellets(state, []);
-    placePacman(state, 2, 1, "LEFT"); // at (1, 4): DOWN and RIGHT are the choices, never UP
-    startGame(state);
-
+  it("refuses an answer that is not one of the legal actions", async () => {
+    const state = fakeGame();
     const provider = new ManualProvider();
-    const controller = new AgentController({ provider });
+    const controller = makeController({ provider });
 
     let rejected = false;
     await run(controller, state, {
       onTick: async () => {
         if (!rejected && provider.pending > 0) {
           rejected = true;
-          provider.respond("UP");
+          provider.respond("Z");
           await provider.settle();
         }
       },
-      stopWhen: () => controller.snapshot().telemetry.some((record) => record.source === "FALLBACK"),
+      stopWhen: () => countFallbacks(controller) > 0,
     });
 
-    const records = controller.snapshot().telemetry;
-    const jevRecord = records.find((record) => record.source === "JEV");
+    const jevRecord = records(controller).find((record) => record.source === "JEV");
     expect(jevRecord?.status).toBe("INVALID");
-    expect(jevRecord?.note).toContain("合法方向");
+    expect(jevRecord?.note).toContain("合法动作");
     expect(jevRecord?.applied).toBeNull();
-    expect(records.some((record) => record.source === "FALLBACK")).toBe(true);
-    expect(state.pacman.direction).toBe("DOWN");
+    expect(state.applied).toBe("B");
   });
 
   it("keeps playing when the provider fails", async () => {
-    const state = miniGame();
-    keepPellets(state, []);
-    placePacman(state, 2, 1, "LEFT");
-    startGame(state);
-
+    const state = fakeGame();
     const provider = new ManualProvider();
-    const controller = new AgentController({ provider });
+    const controller = makeController({ provider });
 
     let failed = false;
     await run(controller, state, {
@@ -209,26 +219,23 @@ describe("agent controller", () => {
           await provider.settle();
         }
       },
-      stopWhen: () => controller.snapshot().telemetry.some((record) => record.source === "FALLBACK"),
+      stopWhen: () => countFallbacks(controller) > 0,
     });
 
     const snapshot = controller.snapshot();
     expect(snapshot.lastError?.kind).toBe("connection");
     expect(snapshot.telemetry.find((record) => record.source === "JEV")?.status).toBe("ERROR");
-    expect(snapshot.telemetry.some((record) => record.source === "FALLBACK")).toBe(true);
+    expect(countFallbacks(controller)).toBeGreaterThan(0);
     expect(state.status).toBe("PLAYING");
 
-    await run(controller, state, { ticks: 120 });
-    expect(state.status === "PLAYING" || state.status === "GAME_OVER").toBe(true);
+    await run(controller, state, { ticks: 40 });
+    expect(state.status).toBe("PLAYING");
   });
 
   it("reports a missing API key instead of crashing", async () => {
-    const state = miniGame();
-    placePacman(state, 2, 1, "LEFT");
-    startGame(state);
-
-    const provider: ManualProvider = new ManualProvider();
-    const controller = new AgentController({ provider });
+    const state = fakeGame();
+    const provider = new ManualProvider();
+    const controller = makeController({ provider });
 
     await run(controller, state, {
       onTick: async () => {
@@ -237,7 +244,7 @@ describe("agent controller", () => {
           await provider.settle();
         }
       },
-      ticks: 60,
+      ticks: 20,
     });
 
     expect(controller.snapshot().apiKeyMissing).toBe(true);
@@ -246,70 +253,131 @@ describe("agent controller", () => {
   });
 
   it("drops anything still in flight when the game epoch changes", async () => {
-    const state = miniGame();
-    keepPellets(state, []);
-    placePacman(state, 2, 1, "LEFT");
-    startGame(state);
-
+    const state = fakeGame();
     const provider = new ManualProvider();
-    const controller = new AgentController({ provider });
+    const controller = makeController({ provider });
 
     await run(controller, state, { stopWhen: () => provider.pending > 0 });
     expect(provider.calls).toHaveLength(1);
 
-    respawnActors(state); // models a death: the epoch moves on
-    provider.respond("RIGHT");
+    state.epoch += 1; // models a death: the world has been replaced
+    provider.respond("C");
     await provider.settle();
     controller.tick(state);
 
-    expect(state.pacman.requestedDirection).toBeNull();
-    expect(controller.snapshot().telemetry[0].status).toBe("STALE");
-    expect(controller.snapshot().telemetry[0].applied).toBeNull();
+    expect(state.applied).toBeNull();
+    expect(records(controller)[0].status).toBe("STALE");
+    expect(records(controller)[0].applied).toBeNull();
   });
 
   it("asks nothing at all in manual mode", async () => {
-    const state = miniGame();
-    placePacman(state, 2, 1, "LEFT");
-    startGame(state);
+    const state = fakeGame();
+    const controller = makeController({ provider: null });
 
-    const controller = new AgentController({ provider: null });
-    await run(controller, state, { ticks: 200 });
+    await run(controller, state, { ticks: 60 });
 
     expect(controller.snapshot().status).toBe("MANUAL");
-    expect(controller.snapshot().telemetry).toHaveLength(0);
-    // It still tracks the junction Pac-Man is heading for, for the debug panel.
-    expect(controller.snapshot().target?.junction).toBeDefined();
-    expect(controller.snapshot().target?.legalDirections.length).toBeGreaterThanOrEqual(2);
+    expect(records(controller)).toHaveLength(0);
+    // It still tracks the decision point ahead, for the debug panel.
+    const target = controller.snapshot().target;
+    expect(target).not.toBeNull();
+    expect(target?.at).not.toBeNull();
+    expect(target?.actions.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("gives up on a decision that times out while Pac-Man is still far away", async () => {
-    const state = miniGame();
-    keepPellets(state, [[11, 7]]);
-    placePacman(state, 2, 1, "LEFT"); // junction (1, 4) is four tiles away
-    startGame(state);
+  it("puts the game id, the legal actions and the point key in every request", async () => {
+    const state = fakeGame();
+    const provider = new ManualProvider();
+    const controller = makeController({ provider });
 
+    await run(controller, state, { stopWhen: () => provider.calls.length > 0 });
+
+    const request = provider.calls[0];
+    expect(request.game).toBe(GAME_ID);
+    expect(request.pointKey).toBe("1:g0");
+    expect(request.actions).toEqual([...FAKE_ACTIONS]);
+    expect(request.instructions).toBe(FAKE_INSTRUCTIONS);
+    expect(request.facts.map((row) => row.modelLabel)).toEqual(["Distance to gate"]);
+    expect(request.state).toEqual({ gate: 0, distance: 3 });
+  });
+
+  it("waits once on the gate, then commits when the window closes", async () => {
+    const state = fakeGame();
+    const provider = new ManualProvider(); // never answers
+    const controller = makeController({ provider });
+
+    // Read the position *at the moment the controller saw it*, before the step.
+    const seen: { distance: number; arriving: boolean; fallbacks: number }[] = [];
+    for (let tick = 0; tick < 40; tick += 1) {
+      controller.tick(state);
+      const point = controller.snapshot().target;
+      seen.push({ distance: state.distance, arriving: point?.arriving ?? false, fallbacks: countFallbacks(controller) });
+      if (countFallbacks(controller) > 0) break;
+      stepFake(state);
+    }
+
+    const arriving = seen.filter((frame) => frame.arriving);
+    expect(arriving.length).toBeGreaterThanOrEqual(2);
+    // Half a tile out: on the gate, but not yet out of time.
+    expect(arriving[0].distance).toBeGreaterThan(FAKE_COMMIT_WINDOW);
+    expect(arriving[0].fallbacks).toBe(0);
+    // At the gate centre: the commit window has closed and the fallback fired.
+    expect(arriving.at(-1)?.distance).toBeLessThanOrEqual(FAKE_COMMIT_WINDOW);
+    expect(arriving.at(-1)?.fallbacks).toBe(1);
+  });
+
+  it("gives up on a decision that times out while the walk is still far away", async () => {
+    const state = fakeGame();
     const clock = new VirtualClock();
     const provider = virtualLatencyProvider(clock, 60_000);
-    const controller = new AgentController({
-      provider,
-      now: clock.now,
-      scheduleTimeout: clock.scheduleTimeout,
-      timeoutMs: 100, // far shorter than the three tiles left to travel
-    });
+    const controller = makeController({ provider, clock, timeoutMs: 100 });
 
-    for (let tick = 0; tick < 25; tick += 1) {
+    for (let tick = 0; tick < 10 && records(controller)[0]?.status !== "TIMEOUT"; tick += 1) {
       controller.tick(state);
-      stepGame(state, FIXED_DT_MS);
+      stepFake(state);
       await flush(2);
-      clock.advance(FIXED_DT_MS);
+      clock.advance(50);
       await flush(2);
     }
 
-    const [record] = controller.snapshot().telemetry;
+    const [record] = records(controller);
     expect(record.status).toBe("TIMEOUT");
     expect(record.applied).toBeNull();
     expect(controller.snapshot().lastError?.kind).toBe("timeout");
     expect(state.status).toBe("PLAYING");
-    expect(state.pacman.tile).not.toEqual(tile(1, 4)); // the junction is still ahead
+    expect(state.gates).toBe(0); // the gate is still ahead
+    expect(state.applied).toBeNull();
+  });
+});
+
+describe("the speed multiplier is not cosmetic", () => {
+  /**
+   * The distance the controller asked at is read back out of the request's own
+   * fact table, so this is the position the game was in, not an inference.
+   */
+  async function askedAt(speed: number): Promise<number> {
+    const state = fakeGame();
+    const provider = new ManualProvider();
+    const controller = makeController({ provider, speed });
+    await run(controller, state, { stopWhen: () => provider.calls.length > 0 });
+
+    const value = provider.calls[0]?.facts[0]?.values.A;
+    if (value === undefined) throw new Error("the request carried no fact row");
+    return Number(value);
+  }
+
+  it("asks `prefetch × speed` tiles early, so the wall-clock window holds", async () => {
+    // At 1× the trigger point is the prefetch distance itself.
+    expect(await askedAt(1)).toBe(FAKE_PREFETCH);
+    // At 2× the game clock runs twice as fast, so the same *wall-clock* window
+    // is twice as many tiles — the whole gate interval, asked on the first tick.
+    expect(await askedAt(2)).toBe(FAKE_GATE_INTERVAL);
+  });
+
+  it("leaves the budget a driver declares alone: the speed compresses the window", () => {
+    expect(FAKE_DRIVER.budgetMs).toBe(FAKE_BUDGET_MS);
+    expect(decisionWindowMs(FAKE_DRIVER.budgetMs, 1)).toBe(500);
+    expect(decisionWindowMs(FAKE_DRIVER.budgetMs, 2)).toBe(250);
+    expect(decisionWindowMs(FAKE_DRIVER.budgetMs, 0.5)).toBe(1000);
   });
 });

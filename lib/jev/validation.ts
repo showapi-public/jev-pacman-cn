@@ -2,17 +2,12 @@
  * Validation of what comes back from the server.
  *
  * The API is trusted for nothing: an answer is a suggestion until it has been
- * checked against the decision it belongs to and the directions that were
- * actually on offer.
+ * checked against the decision it belongs to and the actions that were actually
+ * on offer. Nothing here knows a game — the actions are whatever the request
+ * said they were.
  */
 
-import type { Direction } from "../games/pacman/types";
-import { DIRECTION_ORDER } from "../games/pacman/types";
-import type { DecideRequest, DecisionResult } from "../agent/types";
-
-export function isDirection(value: unknown): value is Direction {
-  return typeof value === "string" && (DIRECTION_ORDER as readonly string[]).includes(value);
-}
+import type { ActionId, DecideRequest, DecisionResult } from "../agent/types";
 
 export type ValidationResult =
   | { ok: true; result: DecisionResult }
@@ -26,18 +21,20 @@ export function validateDecision(payload: unknown, request: DecideRequest): Vali
     return { ok: false, reason: `回答对应的决策是 ${String(body.decisionId)}` };
   }
 
-  if (!isDirection(body.direction)) {
-    return { ok: false, reason: `回答不是一个方向：${String(body.direction)}` };
+  if (typeof body.action !== "string") {
+    return { ok: false, reason: `回答不是一个动作：${String(body.action)}` };
   }
 
-  if (!request.legalDirections.includes(body.direction)) {
-    return { ok: false, reason: `回答 ${body.direction} 不在合法方向之内` };
+  if (!request.actions.includes(body.action)) {
+    return { ok: false, reason: `回答 ${body.action} 不在合法动作之内` };
   }
 
-  const probabilities: Partial<Record<Direction, number>> = {};
+  const probabilities: Partial<Record<ActionId, number>> = {};
   if (typeof body.probabilities === "object" && body.probabilities !== null) {
     for (const [key, value] of Object.entries(body.probabilities as Record<string, unknown>)) {
-      if (isDirection(key) && typeof value === "number" && Number.isFinite(value)) probabilities[key] = value;
+      if (request.actions.includes(key) && typeof value === "number" && Number.isFinite(value)) {
+        probabilities[key] = value;
+      }
     }
   }
 
@@ -45,7 +42,7 @@ export function validateDecision(payload: unknown, request: DecideRequest): Vali
     ok: true,
     result: {
       decisionId: request.decisionId,
-      direction: body.direction,
+      action: body.action,
       confidence: typeof body.confidence === "number" ? body.confidence : null,
       probabilities,
       latencyMs: typeof body.latencyMs === "number" && Number.isFinite(body.latencyMs) ? body.latencyMs : 0,

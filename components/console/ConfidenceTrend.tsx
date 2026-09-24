@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-import type { DecisionPoint } from "@/lib/agent/telemetry";
+import type { SeriesPoint } from "@/lib/agent/telemetry";
 import { formatPercent } from "@/lib/ui";
 
 /**
@@ -27,7 +27,7 @@ const ConfidenceChart = dynamic(() => import("@/components/charts/ConfidenceChar
 });
 
 export interface ConfidenceTrendProps {
-  points: readonly DecisionPoint[];
+  points: readonly SeriesPoint[];
   /**
    * Every decision in the session, including the ones that carry neither a
    * confidence nor a probability and are therefore absent from `points`.
@@ -52,7 +52,7 @@ export function ConfidenceTrend({ points, recordCount }: ConfidenceTrendProps) {
         {points.length === 0 ? null : (
           <p className="m-0 flex items-center gap-3 text-micro text-fg-3">
             <LegendKey color="var(--accent)" label="自评置信度" />
-            <LegendKey color="var(--pacman)" label="选项占比" />
+            <LegendKey color="var(--self)" label="选项占比" />
             <span className="num">
               均值 {average === null ? "—" : formatPercent(average)}
               {latest === null ? null : (

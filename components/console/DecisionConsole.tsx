@@ -2,34 +2,30 @@
 
 import * as React from "react";
 
-import { ConfidenceTrend } from "@/components/ConfidenceTrend";
-import { DebugPane } from "@/components/DebugPane";
-import { DecisionCard } from "@/components/DecisionCard";
-import { DecisionTimeline } from "@/components/DecisionTimeline";
-import { SessionStats } from "@/components/SessionStats";
+import { ConfidenceTrend } from "@/components/console/ConfidenceTrend";
+import { DebugPane } from "@/components/console/DebugPane";
+import { DecisionCard } from "@/components/console/DecisionCard";
+import { DecisionTimeline } from "@/components/console/DecisionTimeline";
+import { SessionStats } from "@/components/console/SessionStats";
+import type { ConsoleInput } from "@/components/console/input";
 import { Chip } from "@/components/ui/chip";
 import { Panel, PanelActions, PanelDivider, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { decisionSeries, type DecisionPoint } from "@/lib/agent/telemetry";
-import type { Direction } from "@/lib/games/pacman/types";
+import { decisionSeries, type SeriesPoint } from "@/lib/agent/telemetry";
 import { useMediaQuery } from "@/lib/use-media-query";
-import { controllerStatus, formatLatency, formatPercent, type UiSnapshot } from "@/lib/ui";
+import { controllerStatus, formatLatency, formatPercent } from "@/lib/ui";
 
 /**
- * The right column: everything about the decision, and nothing else.
+ * 右栏：关于决策的一切，别的什么都不放。
  *
- * The decision being made is always on screen — it is the thing worth watching
- * continuously — and the session registers share what is left over behind a tab
- * strip, one at a time. That is also what keeps the console to a single
- * scrollbar: expand the facts, and the list below gets shorter instead of a
- * second scrollbar appearing.
+ * 正在发生的那一次决策永远在屏幕上 —— 它是唯一值得持续盯着的东西 —— 而这一局的
+ * 账目放在一条页签后面，一次只给一个。这也是右栏只有一个滚动条的原因：展开事实表，
+ * 下面的列表变短，而不是冒出第二个滚动条。
  *
- * The session chart is the one register that moves. On a tall viewport it has
- * room to sit permanently under the decision; on a short one it would starve the
- * history of every pixel it has — the panel loses 180px between a 900px and a
- * 720px window, and the chart's ~173px would come straight out of the list, whose
- * rows would end up below the fold entirely. So below the threshold the chart
- * folds into the strip as a tab of its own, and the history keeps its height.
+ * 会话曲线是唯一会动的寄存器。视口高的时候它有地方常驻在决策卡下面；矮视口下它会
+ * 把历史列表的每一个像素都吃掉 —— 面板在 900px 与 720px 的窗口之间少掉 180px，
+ * 而曲线那 ~173px 会直接从列表里出，列表的行会整段掉到折线以下。所以低于阈值时曲线
+ * 折进页签里，历史保住自己的高度。
  */
 
 type ConsoleTab = "HISTORY" | "CONFIDENCE" | "METRICS" | "STATE";
@@ -54,16 +50,14 @@ type ConsoleTab = "HISTORY" | "CONFIDENCE" | "METRICS" | "STATE";
 const CHART_STAYS_INLINE = "(min-height: 780px)";
 
 export interface DecisionConsoleProps {
-  ui: UiSnapshot;
-  /** Manual mode: the compass steers rather than inspects. */
-  steerable: boolean;
-  debug: boolean;
-  onSteer: (direction: Direction) => void;
+  /** 右栏的全部输入 —— 零游戏知识，见 `components/console/input.ts`。 */
+  input: ConsoleInput;
 }
 
-export function DecisionConsole({ ui, steerable, debug, onSteer }: DecisionConsoleProps) {
-  const snapshot = ui.controller;
-  const latest = ui.feed[0] ?? null;
+export function DecisionConsole({ input }: DecisionConsoleProps) {
+  const snapshot = input.controller;
+  const records = input.records;
+  const latest = records.at(-1) ?? null;
   const status = controllerStatus(snapshot);
 
   const chartInline = useMediaQuery(CHART_STAYS_INLINE, true);
@@ -75,33 +69,28 @@ export function DecisionConsole({ ui, steerable, debug, onSteer }: DecisionConso
   // same again for 置信度 when the window grows enough to give the chart its own
   // place back.
   const activeTab: ConsoleTab =
-    (tab === "STATE" && !debug) || (tab === "CONFIDENCE" && chartInline) ? "HISTORY" : tab;
+    (tab === "STATE" && !input.debug) || (tab === "CONFIDENCE" && chartInline) ? "HISTORY" : tab;
 
-  const series = React.useMemo(() => decisionSeries(snapshot.telemetry), [snapshot.telemetry]);
+  const series = React.useMemo(() => decisionSeries(records), [records]);
 
   return (
-    <Panel aria-label="Jev 决策可视化" className="min-h-0">
+    <Panel aria-label="模型决策可视化" className="min-h-0">
       <PanelHeader>
-        <PanelTitle>Jev 决策</PanelTitle>
+        <PanelTitle>模型决策</PanelTitle>
         <PanelActions>
-          <span className="label num">{snapshot.telemetry.length} 条记录</span>
+          <span className="label num">{records.length} 条记录</span>
           <Chip tone={status.tone} dot role="status">
             {status.label}
           </Chip>
         </PanelActions>
       </PanelHeader>
 
-      <DecisionCard
-        snapshot={snapshot}
-        decision={latest}
-        steerable={steerable}
-        onSteer={onSteer}
-      />
+      <DecisionCard input={input} />
 
       <PanelDivider className="mt-3" />
       {chartInline ? (
         <>
-          <ConfidenceTrend points={series} recordCount={snapshot.telemetry.length} />
+          <ConfidenceTrend points={series} recordCount={records.length} />
           <PanelDivider />
         </>
       ) : null}
@@ -116,11 +105,11 @@ export function DecisionConsole({ ui, steerable, debug, onSteer }: DecisionConso
             <TabsTrigger value="HISTORY">决策历史</TabsTrigger>
             {chartInline ? null : <TabsTrigger value="CONFIDENCE">置信度</TabsTrigger>}
             <TabsTrigger value="METRICS">指标</TabsTrigger>
-            {debug ? <TabsTrigger value="STATE">状态</TabsTrigger> : null}
+            {input.debug ? <TabsTrigger value="STATE">状态</TabsTrigger> : null}
           </TabsList>
           <span className="label num">
             {activeTab === "METRICS"
-              ? `执行率 ${ui.metrics.appliedRate === null ? "—" : `${Math.round(ui.metrics.appliedRate * 100)}%`}`
+              ? `执行率 ${input.metrics.appliedRate === null ? "—" : `${Math.round(input.metrics.appliedRate * 100)}%`}`
               : activeTab === "STATE"
                 ? "原始 JSON"
                 : activeTab === "CONFIDENCE"
@@ -133,28 +122,28 @@ export function DecisionConsole({ ui, steerable, debug, onSteer }: DecisionConso
 
         <TabsContent value="HISTORY" className="min-h-0 flex-1">
           <div className="scroll-area h-full">
-            <DecisionTimeline records={ui.feed} />
+            <DecisionTimeline input={input} />
           </div>
         </TabsContent>
 
         {chartInline ? null : (
           <TabsContent value="CONFIDENCE" className="min-h-0 flex-1">
             <div className="scroll-area h-full">
-              <ConfidenceTrend points={series} recordCount={snapshot.telemetry.length} />
+              <ConfidenceTrend points={series} recordCount={records.length} />
             </div>
           </TabsContent>
         )}
 
         <TabsContent value="METRICS" className="min-h-0 flex-1">
           <div className="scroll-area h-full">
-            <SessionStats metrics={ui.metrics} records={snapshot.telemetry} />
+            <SessionStats input={input} />
           </div>
         </TabsContent>
 
-        {debug ? (
+        {input.debug ? (
           <TabsContent value="STATE" className="min-h-0 flex-1">
             <div className="scroll-area h-full">
-              <DebugPane ui={ui} />
+              <DebugPane input={input} />
             </div>
           </TabsContent>
         ) : null}
@@ -164,7 +153,7 @@ export function DecisionConsole({ ui, steerable, debug, onSteer }: DecisionConso
 }
 
 /** The run's mean self-reported confidence, for the strip's readout. */
-function meanConfidence(points: readonly DecisionPoint[]): string {
+function meanConfidence(points: readonly SeriesPoint[]): string {
   const values = points
     .map((point) => point.confidence)
     .filter((value): value is number => value !== null);

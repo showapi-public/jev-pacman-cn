@@ -26,7 +26,9 @@ describe("游戏注册表", () => {
 
   it("展示字段齐全且非空", () => {
     for (const meta of GAME_META) {
-      for (const field of ["name", "tagline", "decisionShape"] as const) {
+      // `actor` / `place` 是右栏共用的两个名词（「当{actor}抵达{place}时」）；共用面板
+      // 一条文案都不能自己写游戏名，所以它们必须每个游戏都给，且不能是空白。
+      for (const field of ["name", "tagline", "decisionShape", "actor", "place"] as const) {
         expect(meta[field], `${meta.id} 的 ${field}`).toBeTruthy();
         expect(meta[field].trim(), `${meta.id} 的 ${field}`).toBe(meta[field]);
       }

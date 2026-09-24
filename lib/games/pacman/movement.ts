@@ -11,7 +11,7 @@
  * the arcade game.
  */
 
-import type { Direction, Maze, PacmanState, Position, TilePosition } from "./types";
+import type { Direction, Maze, PacmanActor, Position, TilePosition } from "./types";
 import {
   DIRECTION_ORDER,
   directionVector,
@@ -97,7 +97,7 @@ export function reverseMover(mover: Mover): void {
  * then straight on, then the only other way out (a corner the engine drives
  * itself), then a reversal if the tile is a dead end.
  */
-export function choosePacmanDirection(pacman: PacmanState, maze: Maze): void {
+export function choosePacmanDirection(pacman: PacmanActor, maze: Maze): void {
   const canEnter = (direction: Direction) => {
     const next = neighbor(pacman.tile, direction);
     return maze.isPacmanWalkable(next.x, next.y);
@@ -122,7 +122,7 @@ export function choosePacmanDirection(pacman: PacmanState, maze: Maze): void {
  * Advances Pac-Man. Reversals take effect immediately, everything else is
  * applied at the next tile centre, which is where the arcade game turns too.
  */
-export function updatePacman(pacman: PacmanState, distance: number, maze: Maze): void {
+export function updatePacman(pacman: PacmanActor, distance: number, maze: Maze): void {
   const requested = pacman.requestedDirection;
   if (requested && requested === oppositeDirection(pacman.direction) && !atTileCenter(pacman)) {
     reverseMover(pacman);
@@ -133,6 +133,6 @@ export function updatePacman(pacman: PacmanState, distance: number, maze: Maze):
     pacman,
     distance,
     (tile) => maze.isPacmanWalkable(tile.x, tile.y),
-    (mover) => choosePacmanDirection(mover as PacmanState, maze),
+    (mover) => choosePacmanDirection(mover as PacmanActor, maze),
   );
 }

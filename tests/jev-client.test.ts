@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { AgentController } from "@/lib/agent/controller";
 import { computeMetrics } from "@/lib/agent/telemetry";
-import type { DecisionProvider } from "@/lib/agent/types";
+import type { DecideRequest, DecisionProvider } from "@/lib/agent/types";
+import { PACMAN_DRIVER, PACMAN_INSTRUCTIONS } from "@/lib/games/pacman/agent";
+import type { PacmanState } from "@/lib/games/pacman/types";
 import { createJevProvider } from "@/lib/jev/client";
 import { validateDecision } from "@/lib/jev/validation";
 import { startGame, stepGame } from "@/lib/games/pacman/engine";
-import type { Direction } from "@/lib/games/pacman/types";
 import { FIXED_DT_MS } from "@/lib/games/pacman/types";
 import { flush, keepPellets, miniGame, placePacman } from "./helpers";
 
@@ -46,7 +47,9 @@ async function playUntilFallback(provider: DecisionProvider) {
   placePacman(state, 2, 1, "LEFT");
   startGame(state);
 
-  const controller = new AgentController({
+  const controller = new AgentController<PacmanState>({
+    driver: PACMAN_DRIVER,
+    game: "pacman",
     provider,
     now: () => 0,
     scheduleTimeout: () => () => {},
@@ -63,57 +66,61 @@ async function playUntilFallback(provider: DecisionProvider) {
 }
 
 describe("validateDecision", () => {
-  const request = {
+  const request: DecideRequest = {
     decisionId: "d1",
-    observation: {} as never,
-    legalDirections: ["DOWN", "RIGHT"] as Direction[],
+    game: "pacman",
+    state: {},
+    actions: ["DOWN", "RIGHT"],
+    instructions: PACMAN_INSTRUCTIONS,
+    facts: [],
+    pointKey: "1:1,4",
   };
 
-  it("rejects a direction that was not on offer, and a mismatched decision id", () => {
-    expect(validateDecision({ decisionId: "d1", direction: "UP" }, request)).toMatchObject({ ok: false });
-    expect(validateDecision({ decisionId: "other", direction: "RIGHT" }, request)).toMatchObject({ ok: false });
-    expect(validateDecision({ decisionId: "d1", direction: "RIGHT" }, request)).toMatchObject({ ok: true });
+  it("rejects an action that was not on offer, and a mismatched decision id", () => {
+    expect(validateDecision({ decisionId: "d1", action: "UP" }, request)).toMatchObject({ ok: false });
+    expect(validateDecision({ decisionId: "other", action: "RIGHT" }, request)).toMatchObject({ ok: false });
+    expect(validateDecision({ decisionId: "d1", action: "RIGHT" }, request)).toMatchObject({ ok: true });
   });
 });
 
 describe("an answer the client rejects becomes `错误`, never `无效`", () => {
-  it("files an illegal direction under ERROR and drives the fallback", async () => {
+  it("files an illegal action under ERROR and drives the fallback", async () => {
     const provider = providerAnswering((request) => ({
       decisionId: request.decisionId,
-      direction: "UP", // never legal at this junction
+      action: "UP", // never legal at this junction
       confidence: 0.5,
       probabilities: { UP: 0.5 },
       latencyMs: 100,
       model: "fake",
     }));
 
-    const { controller, state } = await playUntilFallback(provider);
+    const { controller } = await playUntilFallback(provider);
     const records = controller.snapshot().telemetry;
     const jev = records.find((record) => record.source === "JEV");
 
     // The controller's own INVALID branch would have produced "INVALID" here; it
     // never runs, because the client refused the answer before resolving.
     expect(jev?.status).toBe("ERROR");
-    expect(jev?.note).toContain("合法方向");
+    expect(jev?.note).toContain("合法动作");
     expect(jev?.applied).toBeNull();
 
-    const metrics = computeMetrics(records, state);
+    const metrics = computeMetrics(records);
     expect(metrics.invalid).toBe(0); // the row the panel shows can only stay 0
     expect(metrics.errors).toBe(1); // this is where it actually lands
     expect(metrics.fallbacks).toBe(1); // and the game still needed a direction
   });
 
   it("files a mismatched decision id under ERROR as well", async () => {
-    const provider = providerAnswering({ decisionId: "somebody-else", direction: "RIGHT" });
+    const provider = providerAnswering({ decisionId: "somebody-else", action: "RIGHT" });
 
-    const { controller, state } = await playUntilFallback(provider);
+    const { controller } = await playUntilFallback(provider);
     const records = controller.snapshot().telemetry;
     const jev = records.find((record) => record.source === "JEV");
 
     expect(jev?.status).toBe("ERROR");
     expect(jev?.note).toContain("somebody-else");
-    expect(computeMetrics(records, state).invalid).toBe(0);
-    expect(computeMetrics(records, state).errors).toBe(1);
+    expect(computeMetrics(records).invalid).toBe(0);
+    expect(computeMetrics(records).errors).toBe(1);
   });
 
   it("files a missing API key under ERROR, and raises the flag the console shows", async () => {
@@ -122,7 +129,7 @@ describe("an answer the client rejects becomes `错误`, never `无效`", () => 
       503,
     );
 
-    const { controller, state } = await playUntilFallback(provider);
+    const { controller } = await playUntilFallback(provider);
     const snapshot = controller.snapshot();
     const jev = snapshot.telemetry.find((record) => record.source === "JEV");
 
@@ -132,7 +139,7 @@ describe("an answer the client rejects becomes `错误`, never `无效`", () => 
     // never really asked, which is why the fallback count is not a lateness count.
     expect(snapshot.apiKeyMissing).toBe(true);
 
-    const metrics = computeMetrics(snapshot.telemetry, state);
+    const metrics = computeMetrics(snapshot.telemetry);
     expect(metrics.errors).toBe(1);
     expect(metrics.fallbacks).toBeGreaterThan(0);
   });

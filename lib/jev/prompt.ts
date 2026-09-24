@@ -1,38 +1,29 @@
 /**
- * The question Jev is asked.
+ * The question as the server sees it.
  *
- * One Choice question named `direction`, whose options are exactly the legal
- * directions at the junction. Jev cannot answer "jump the wall" or "wait":
- * everything it can say is something Pac-Man is allowed to do.
+ * This module knows no game. It is handed the game's own system prompt, its
+ * legal actions and its fact table, and turns the table into the per-action
+ * criteria the Choice question expects.
  */
 
-import { candidateText } from "../agent/candidates";
-import type { CandidateAnalysis } from "../games/pacman/analysis";
-import type { Direction } from "../games/pacman/types";
+import type { ActionId, FactRow } from "../agent/types";
 
-export const QUESTION_ID = "direction";
+/** The one question in the payload; the answer comes back keyed by it. */
+export const QUESTION_ID = "action";
 
-export const DECISION_INSTRUCTIONS = `Choose Pac-Man's next direction at the target junction.
-
-Priority:
-1. Stay alive.
-2. Avoid dangerous ghosts.
-3. When ghosts are frightened, eat them when reasonably safe.
-4. Use power pellets when useful for survival.
-5. Collect pellets efficiently.
-6. Avoid dead ends and unnecessary reversals unless they are safer.
-
-Use only the supplied game state and candidate facts. Choose exactly one legal direction.`;
-
-export function buildCriteria(
-  candidates: Partial<Record<Direction, CandidateAnalysis>>,
-  legalDirections: readonly Direction[],
-): Record<string, string> {
+/**
+ * Flatten the fact table into one block of text per action.
+ *
+ * This is the *only* place the table becomes prose, and it is the same table the
+ * right-hand panel renders — so the reader and the model are looking at one
+ * object rather than at two renderings that can drift apart. Every row is
+ * emitted for every action; a missing value would become a silent gap in the
+ * prompt, so it is written as an em dash instead.
+ */
+export function buildCriteria(facts: readonly FactRow[], actions: readonly ActionId[]): Record<string, string> {
   const criteria: Record<string, string> = {};
-  for (const direction of legalDirections) {
-    const candidate = candidates[direction];
-    if (!candidate) continue;
-    criteria[direction] = candidateText(direction, candidate);
+  for (const action of actions) {
+    criteria[action] = facts.map((row) => `${row.modelLabel}: ${row.values[action] ?? "—"}`).join("\n");
   }
   return criteria;
 }

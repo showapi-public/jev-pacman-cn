@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import { AgentController } from "@/lib/agent/controller";
 import { createHeuristicProvider, createRandomProvider } from "@/lib/agent/providers";
 import type { DecisionProvider } from "@/lib/agent/types";
+import { PACMAN_DRIVER } from "@/lib/games/pacman/agent";
 import { createGame, startGame, stepGame } from "@/lib/games/pacman/engine";
+import { PACMAN } from "@/lib/games/pacman/index";
+import type { PacmanState } from "@/lib/games/pacman/types";
 import { DIRECTION_ORDER, FIXED_DT_MS, tileOf } from "@/lib/games/pacman/types";
 import { VirtualClock, flush, virtualLatencyProvider } from "./helpers";
 
@@ -11,7 +14,7 @@ import { VirtualClock, flush, virtualLatencyProvider } from "./helpers";
 const LATENCIES = [0, 100, 300, 700, 1600];
 const TICKS = 60 * 45;
 
-function checkWorld(state: ReturnType<typeof createGame>, violations: string[], tick: number): void {
+function checkWorld(state: PacmanState, violations: string[], tick: number): void {
   const occupied = tileOf(state.pacman.position);
   if (!state.maze.isPacmanWalkable(occupied.x, occupied.y)) violations.push(`tick ${tick}: Pac-Man inside a wall`);
   if (!Number.isFinite(state.pacman.position.x) || !Number.isFinite(state.pacman.position.y)) {
@@ -34,6 +37,8 @@ describe("slow answers", () => {
       const clock = new VirtualClock();
       const provider = virtualLatencyProvider(clock, latency);
       const controller = new AgentController({
+        driver: PACMAN_DRIVER,
+        game: "pacman",
         provider,
         now: clock.now,
         scheduleTimeout: clock.scheduleTimeout,
@@ -85,6 +90,8 @@ describe("long run", () => {
   it("holds every invariant for 10,000 ticks of a seeded random player", async () => {
     const provider = createRandomProvider(11);
     const controller = new AgentController({
+      driver: PACMAN_DRIVER,
+      game: "pacman",
       provider,
       now: () => 0,
       // The random player answers instantly, so no timeout ever fires.
@@ -112,13 +119,21 @@ describe("long run", () => {
   }, 120_000);
 
   it("runs the baselines on the same seed without surprises", async () => {
-    const play = async (provider: DecisionProvider, ticks: number) => {
+    /*
+     * The provider is built from the state, not before it. The heuristic player
+     * is game code and has to see the live position, so the test hands it the
+     * same two things the shell does: a way to read the state, and the game's
+     * own chooser (`GameDefinition.heuristic`).
+     */
+    const play = async (makeProvider: (state: PacmanState) => DecisionProvider, ticks: number) => {
+      const state = createGame({ seed: 3 });
       const controller = new AgentController({
-        provider,
+        driver: PACMAN_DRIVER,
+        game: "pacman",
+        provider: makeProvider(state),
         now: () => 0,
         scheduleTimeout: () => () => {},
       });
-      const state = createGame({ seed: 3 });
       startGame(state);
       for (let tick = 0; tick < ticks; tick += 1) {
         controller.tick(state);
@@ -128,8 +143,15 @@ describe("long run", () => {
       return { state, records: controller.snapshot().telemetry };
     };
 
-    const random = await play(createRandomProvider(3), 3000);
-    const heuristic = await play(createHeuristicProvider(), 3000);
+    const random = await play(() => createRandomProvider(3), 3000);
+    const heuristic = await play(
+      (state) =>
+        createHeuristicProvider<PacmanState>({
+          state: () => state,
+          choose: (live, actions) => PACMAN.heuristic(live, actions),
+        }),
+      3000,
+    );
 
     expect(random.state.pelletsEaten).toBeGreaterThan(0);
     expect(heuristic.state.pelletsEaten).toBeGreaterThan(0);

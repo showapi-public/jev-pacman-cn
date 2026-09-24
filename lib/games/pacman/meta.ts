@@ -13,6 +13,21 @@ export const PACMAN_META: GameMeta = {
   tagline: "吃光豆子，躲开幽灵",
   decisionShape: "每个路口选一个方向",
   selfColor: "var(--pacman)",
+  actor: "吃豆人",
+  place: "路口",
+};
+
+/**
+ * 手动模式的键盘映射：按哪个键 = 想走哪个方向。
+ *
+ * 放在游戏侧而不是 `lib/ui.ts`：键位到动作的映射属于这款游戏的动作空间，而 `lib/ui.ts`
+ * 是共用的 —— 它不该知道世界上存在 `"UP"` 这种东西。
+ */
+export const PACMAN_KEY_ACTIONS: Record<string, ActionId> = {
+  ArrowUp: "UP",
+  ArrowDown: "DOWN",
+  ArrowLeft: "LEFT",
+  ArrowRight: "RIGHT",
 };
 
 /** 展示顺序与 `DIRECTION_ORDER` 一致，这样概率阶梯的并列次序与引擎的确定性平局规则同源。 */

@@ -11,6 +11,7 @@ import { useEffect, useRef } from "react";
 
 import type { AgentController } from "@/lib/agent/controller";
 import type { SoundBoard } from "@/lib/audio/sfx";
+import { PACMAN_DRIVER } from "@/lib/games/pacman/agent";
 import { stepGame } from "@/lib/games/pacman/engine";
 import {
   addBurst,
@@ -24,9 +25,9 @@ import {
   isFrozen,
   stepJuice,
 } from "@/lib/games/pacman/juice";
-import { EFFECT_COLORS, TILE, drawGame, ghostColor } from "@/lib/games/pacman/render";
+import { EFFECT_COLORS, TILE, drawGame, ghostColor, type RenderOptions } from "@/lib/games/pacman/render";
 import { FIXED_DT_MS } from "@/lib/games/pacman/types";
-import type { GameEvent, GameState } from "@/lib/games/pacman/types";
+import type { PacmanEvent, PacmanState } from "@/lib/games/pacman/types";
 import { isAiMode, type PlayMode } from "@/lib/ui";
 import type { JuiceState } from "@/lib/games/pacman/juice";
 
@@ -42,8 +43,8 @@ const PUBLISH_INTERVAL_MS = 100;
 const RENDER_SCALE = 2;
 
 export interface PacmanCanvasProps {
-  stateRef: React.RefObject<GameState | null>;
-  controllerRef: React.RefObject<AgentController | null>;
+  stateRef: React.RefObject<PacmanState | null>;
+  controllerRef: React.RefObject<AgentController<PacmanState> | null>;
   mode: PlayMode;
   speed: number;
   debug: boolean;
@@ -53,7 +54,7 @@ export interface PacmanCanvasProps {
   attract: boolean;
   sound: SoundBoard;
   onSnapshot: () => void;
-  onEvents: (events: GameEvent[]) => void;
+  onEvents: (events: PacmanEvent[]) => void;
 }
 
 export function PacmanCanvas(props: PacmanCanvasProps) {
@@ -106,7 +107,7 @@ export function PacmanCanvas(props: PacmanCanvasProps) {
       if (state.status === "PLAYING" && !isFrozen(juice)) {
         accumulator += elapsed * speed;
         let steps = 0;
-        const collected: GameEvent[] = [];
+        const collected: PacmanEvent[] = [];
 
         while (accumulator >= FIXED_DT_MS && steps < MAX_STEPS_PER_FRAME) {
           // The agent decides first, then the engine moves: a direction applied
@@ -138,7 +139,9 @@ export function PacmanCanvas(props: PacmanCanvasProps) {
         juice,
         neon,
         thinking: state.status === "PLAYING" && controller.isRequesting(),
-        debugInfo: controller.debugInfo(state),
+        // The overlay's contents are the game's own; the controller has no
+        // business knowing what a junction is.
+        debugInfo: debug ? (PACMAN_DRIVER.debug(state) as RenderOptions["debugInfo"]) : null,
       });
 
       if (now - lastPublish >= PUBLISH_INTERVAL_MS) {
@@ -196,10 +199,10 @@ function prefersReducedMotion(): boolean {
  * skipped under `prefers-reduced-motion`; sound is governed by the mute switch.
  */
 function reactTo(
-  events: GameEvent[],
+  events: PacmanEvent[],
   juice: JuiceState,
   sound: SoundBoard,
-  state: GameState,
+  state: PacmanState,
   reduced: boolean,
 ): void {
   const tile = state.pacman.tile;

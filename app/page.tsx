@@ -9,12 +9,20 @@
  * the viewport: a 52px header, then two columns that scroll inside themselves —
  * so the page never grows a scrollbar of its own, and the maze never scrolls at
  * all.
+ *
+ * This file is still one game's page: it is where Pac-Man meets the shared
+ * console, and the only place that knows how the two fit together. The right
+ * column receives `ConsoleInput` — zero game knowledge — and would render the
+ * same for any other game. The last game-shaped thing left in here is the
+ * `--self` variable on the shell plus the vocab and the two nouns handed to the
+ * console.
  */
 
 import { ArrowCounterClockwise, Info, Pause, Play } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 
-import { DecisionConsole } from "@/components/DecisionConsole";
+import { DecisionConsole } from "@/components/console/DecisionConsole";
+import type { ConsoleInput } from "@/components/console/input";
 import { GameControls } from "@/components/GameControls";
 import { GameMeters } from "@/components/GameMeters";
 import { HelpDialog } from "@/components/HelpDialog";
@@ -25,18 +33,20 @@ import { Panel, PanelActions, PanelHeader, PanelTitle } from "@/components/ui/pa
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AgentController } from "@/lib/agent/controller";
 import { createHeuristicProvider, createRandomProvider } from "@/lib/agent/providers";
-import { computeMetrics, recentFeed } from "@/lib/agent/telemetry";
-import type { DecisionProvider } from "@/lib/agent/types";
+import { computeMetrics } from "@/lib/agent/telemetry";
+import type { ActionId, DecisionProvider } from "@/lib/agent/types";
 import { SOUND_STORAGE_KEY, SoundBoard } from "@/lib/audio/sfx";
+import { describePacmanEvent } from "@/lib/games/pacman/copy";
+import { PACMAN_DRIVER } from "@/lib/games/pacman/agent";
 import { createGame, pauseGame, requestDirection, resumeGame, startGame } from "@/lib/games/pacman/engine";
-import type { Direction, GameEvent, GameState } from "@/lib/games/pacman/types";
+import { PACMAN } from "@/lib/games/pacman/index";
+import { PACMAN_KEY_ACTIONS, PACMAN_META, PACMAN_VOCAB } from "@/lib/games/pacman/meta";
+import type { Direction, PacmanEvent, PacmanState } from "@/lib/games/pacman/types";
 import { createJevProvider } from "@/lib/jev/client";
 import {
   GAME_STATUS_TONE,
-  KEY_DIRECTIONS,
   MODE_LABELS,
   STATUS_LABELS,
-  describeEvent,
   formatMs,
   type PlayMode,
   type UiSnapshot,
@@ -59,29 +69,43 @@ const KONAMI = [
 ];
 
 export default function Page() {
+  const stateRef = useRef<PacmanState | null>(null);
+  if (!stateRef.current) stateRef.current = createGame({ seed: INITIAL_SEED });
+
   const providersRef = useRef<Record<PlayMode, DecisionProvider | null> | null>(null);
   if (!providersRef.current) {
     providersRef.current = {
       JEV: createJevProvider(),
       MANUAL: null,
       RANDOM: createRandomProvider(INITIAL_SEED),
-      HEURISTIC: createHeuristicProvider(),
+      // The heuristic player is game code, so the shell hands it the two things
+      // the agent layer cannot have: a way to read the position, and the
+      // game's own chooser.
+      HEURISTIC: createHeuristicProvider<PacmanState>({
+        state: () => stateRef.current,
+        choose: (state, actions) => PACMAN.heuristic(state, actions),
+      }),
     };
   }
   const providers = providersRef.current;
 
-  const stateRef = useRef<GameState | null>(null);
-  if (!stateRef.current) stateRef.current = createGame({ seed: INITIAL_SEED });
-
-  const controllerRef = useRef<AgentController | null>(null);
-  if (!controllerRef.current) controllerRef.current = new AgentController({ provider: providers.JEV });
+  const controllerRef = useRef<AgentController<PacmanState> | null>(null);
+  if (!controllerRef.current) {
+    controllerRef.current = new AgentController<PacmanState>({
+      driver: PACMAN_DRIVER,
+      game: PACMAN_META.id,
+      provider: providers.JEV,
+    });
+  }
 
   const eventsRef = useRef<string[]>([]);
   const [ui, setUi] = useState<UiSnapshot | null>(() =>
-    buildSnapshot(stateRef.current as GameState, controllerRef.current as AgentController, []),
+    buildSnapshot(stateRef.current as PacmanState, controllerRef.current as AgentController<PacmanState>),
   );
   const [mode, setMode] = useState<PlayMode>("JEV");
-  const [speed, setSpeed] = useState(0.5);
+  // 1× everywhere: the budget the panels quote (500 ms) is only true at 1×, and
+  // it is the only speed two games can be compared at. See plan §7 决策②.
+  const [speed, setSpeed] = useState(1);
   const [seed, setSeed] = useState(INITIAL_SEED);
   const [debug, setDebug] = useState(false);
 
@@ -103,11 +127,11 @@ export default function Page() {
     const state = stateRef.current;
     const controller = controllerRef.current;
     if (!state || !controller) return;
-    setUi(buildSnapshot(state, controller, eventsRef.current));
+    setUi(buildSnapshot(state, controller));
   }, []);
 
-  const onEvents = useCallback((events: GameEvent[]) => {
-    const lines = events.map(describeEvent);
+  const onEvents = useCallback((events: PacmanEvent[]) => {
+    const lines = events.map(describePacmanEvent);
     eventsRef.current = [...lines.reverse(), ...eventsRef.current].slice(0, EVENT_LOG_SIZE);
   }, []);
 
@@ -136,6 +160,16 @@ export default function Page() {
     if (window.localStorage.getItem(CRT_STORAGE_KEY) === "off") setCrtOn(false);
     publish();
   }, [publish]);
+
+  /*
+   * Speed is not cosmetic: it scales the game clock, so the wall-clock window a
+   * decision has to arrive in shrinks with it. The controller needs to know, or
+   * it would keep asking three *game* tiles ahead and quietly cut the window in
+   * half at 2×. See `AgentController.setSpeed`.
+   */
+  useEffect(() => {
+    controllerRef.current?.setSpeed(speed);
+  }, [speed]);
 
   // The cabinet's easter egg: the old code, honoured. It changes nothing about
   // how Pac-Man or Jev play — only the colours of the maze.
@@ -166,7 +200,7 @@ export default function Page() {
     if (mode !== "MANUAL") return;
     const onKeyDown = (event: KeyboardEvent) => {
       const state = stateRef.current;
-      const direction = KEY_DIRECTIONS[event.key];
+      const direction = PACMAN_KEY_ACTIONS[event.key] as Direction | undefined;
       if (!state || !direction || state.status !== "PLAYING") return;
       event.preventDefault();
       requestDirection(state, direction);
@@ -228,10 +262,12 @@ export default function Page() {
   };
 
   /** A compass key in manual mode is a steering wheel, not an inspection. */
-  const handleSteer = (direction: Direction) => {
+  const handleSteer = (action: ActionId) => {
     const state = stateRef.current;
     if (!state || mode !== "MANUAL" || state.status !== "PLAYING") return;
-    requestDirection(state, direction);
+    // `ActionId` is opaque everywhere else; this page is the game's own, so it is
+    // the one place allowed to say which action space those ids belong to.
+    requestDirection(state, action as Direction);
   };
 
   const handleExport = () => {
@@ -243,7 +279,7 @@ export default function Page() {
       exportedAt: new Date().toISOString(),
       mode,
       seed,
-      summary: computeMetrics(snapshot.telemetry, state),
+      summary: computeMetrics(snapshot.telemetry),
       game: {
         score: state.score,
         lives: state.lives,
@@ -269,8 +305,35 @@ export default function Page() {
   const playLabel = running ? "暂停" : ui.status === "PAUSED" ? "继续" : "开始";
   const PlayIcon = running ? Pause : Play;
 
+  /*
+   * The right column's whole input. Nothing in it is Pac-Man-shaped — the four
+   * things that are come from the game's own meta and vocab, which is exactly
+   * the seam that lets a second game reuse every panel below.
+   */
+  const consoleInput: ConsoleInput = {
+    status: ui.status,
+    metrics: computeMetrics(ui.controller.telemetry),
+    records: ui.controller.telemetry,
+    controller: ui.controller,
+    budgetMs: PACMAN_DRIVER.budgetMs,
+    speed,
+    playTimeMs: ui.playTimeMs,
+    events: eventsRef.current,
+    vocab: PACMAN_VOCAB,
+    actor: PACMAN_META.actor,
+    place: PACMAN_META.place,
+    steerable: mode === "MANUAL",
+    debug,
+    onSteer: handleSteer,
+  };
+
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      // 每局的自身色：动作盘选中的键、阶梯选中的行、时间线的占比条、置信度图的
+      // 「选项占比」序列都吃 var(--self)，于是「换游戏 = 换这一个变量」。
+      style={{ "--self": PACMAN_META.selfColor } as CSSProperties}
+    >
       <a className="skip-link" href="#stage">
         跳到游戏区域
       </a>
@@ -280,14 +343,14 @@ export default function Page() {
           <div className="flex min-w-0 items-center gap-3">
             <span
               aria-hidden="true"
-              className="size-[22px] shrink-0 rounded-full bg-pacman [clip-path:polygon(100%_24%,52%_50%,100%_76%,100%_100%,0_100%,0_0,100%_0)]"
+              className="size-[22px] shrink-0 rounded-full bg-self [clip-path:polygon(100%_24%,52%_50%,100%_76%,100%_100%,0_100%,0_0,100%_0)]"
             />
             <div className="flex min-w-0 flex-col">
               <h1 className="anim-flicker m-0 text-title font-[590] tracking-[-0.011em] text-fg">
-                Jev 玩吃豆人
+                Jev 玩{PACMAN_META.name}
               </h1>
               <p className="m-0 truncate text-micro text-fg-3">
-                TypeSafe System One · 输入结构化状态，输出一个合法方向 · 无需微调，不看截图
+                TypeSafe System One · 输入结构化状态，输出一个合法动作 · 无需微调，不看截图
               </p>
             </div>
           </div>
@@ -395,20 +458,15 @@ export default function Page() {
             </Panel>
           </div>
 
-          <DecisionConsole
-            ui={ui}
-            steerable={mode === "MANUAL"}
-            debug={debug}
-            onSteer={handleSteer}
-          />
+          <DecisionConsole input={consoleInput} />
         </main>
       </TooltipProvider>
     </div>
   );
 }
 
-function buildSnapshot(state: GameState, controller: AgentController, events: string[]): UiSnapshot {
-  const snapshot = controller.snapshot();
+/** The shell's view of the run: the game's scoreboard plus the controller. */
+function buildSnapshot(state: PacmanState, controller: AgentController<PacmanState>): UiSnapshot {
   return {
     status: state.status,
     score: state.score,
@@ -419,9 +477,6 @@ function buildSnapshot(state: GameState, controller: AgentController, events: st
     pelletsEaten: state.pelletsEaten,
     ghostsEaten: state.ghostsEaten,
     playTimeMs: state.playTimeMs,
-    controller: snapshot,
-    metrics: computeMetrics(snapshot.telemetry, state),
-    feed: recentFeed(snapshot.telemetry, 40),
-    events,
+    controller: controller.snapshot(),
   };
 }

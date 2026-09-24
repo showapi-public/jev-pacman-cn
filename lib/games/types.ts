@@ -82,6 +82,15 @@ export interface GameMeta {
   readonly decisionShape: string;
   /** 本局自身色的 CSS 变量引用，挂到外壳的 `--self`，例如 `"var(--pacman)"`。见设计规范 §4.2。 */
   readonly selfColor: string;
+  /**
+   * 文案里指代「玩家在操控的那个东西」的短名词：吃豆人 / 蛇。
+   *
+   * 右栏是共用的，所以它不能自己写「吃豆人」三个字；`name` 又太长（导航卡与标题用），
+   * 这里要的是能塞进一句话里的名词，例如「当{actor}抵达路口时」。见设计规范 §6.3。
+   */
+  readonly actor: string;
+  /** 文案里指代「决策发生的地方」的名词：路口 / 格子。右栏的元信息与空状态都用它。 */
+  readonly place: string;
 }
 
 /* ------------------------------------------------------------- 决策点 */
@@ -278,9 +287,11 @@ export interface GameDefinition<S extends GameState> {
   /**
    * 手挑权重的对照玩家（非学习），供「启发式」模式。
    *
-   * 它是**游戏代码**：直接读完整状态就行，不必经过观察 —— 观察是给模型的。
+   * 它是**游戏代码**：直接读完整局面就行，不必经过观察 —— 观察是给模型的，
+   * 而对照玩家的参照系是真实的局面。合法动作由控制器给，免得它自己再算一遍
+   * 还算出和这一问不一样的一组。
    */
-  heuristic(state: S, point: DecisionPoint, actions: readonly ActionId[]): ActionId;
+  heuristic(state: S, actions: readonly ActionId[]): ActionId;
 
   /** 导出 JSON 里的游戏侧汇总。 */
   summary(state: S): Record<string, number | string | null>;

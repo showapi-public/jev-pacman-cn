@@ -5,7 +5,7 @@
  * can decide what to do with the events (score chimes, respawns, telemetry).
  */
 
-import type { GameEvent, GameState, GhostState, Position, TilePosition } from "./types";
+import type { PacmanEvent, PacmanState, GhostState, Position, TilePosition } from "./types";
 import {
   GHOST_EATEN_SCORES,
   PELLET_SCORE,
@@ -38,8 +38,8 @@ export function actorsTouch(
 }
 
 /** Eats any pellet or power pellet under Pac-Man and scores it. */
-export function collectPellets(state: GameState): GameEvent[] {
-  const events: GameEvent[] = [];
+export function collectPellets(state: PacmanState): PacmanEvent[] {
+  const events: PacmanEvent[] = [];
   const tile = occupiedTile(state.pacman);
   const key = tileKey(tile);
 
@@ -58,7 +58,7 @@ export function collectPellets(state: GameState): GameEvent[] {
   return events;
 }
 
-export function startFrightened(state: GameState, events: GameEvent[] = []): GameEvent[] {
+export function startFrightened(state: PacmanState, events: PacmanEvent[] = []): PacmanEvent[] {
   state.fright.active = true;
   state.fright.remainingMs = FRIGHTENED_DURATION_MS;
   state.fright.eaten = 0;
@@ -73,7 +73,7 @@ export function startFrightened(state: GameState, events: GameEvent[] = []): Gam
   return events;
 }
 
-export function endFrightened(state: GameState, events: GameEvent[] = []): GameEvent[] {
+export function endFrightened(state: PacmanState, events: PacmanEvent[] = []): PacmanEvent[] {
   state.fright.active = false;
   state.fright.remainingMs = 0;
   for (const ghost of state.ghosts) {
@@ -86,7 +86,7 @@ export function endFrightened(state: GameState, events: GameEvent[] = []): GameE
 export type GhostContact = { ghost: GhostState; kind: "CAUGHT" | "EATEN" };
 
 /** Who is touching Pac-Man, and what that means. */
-export function ghostContacts(state: GameState): GhostContact[] {
+export function ghostContacts(state: PacmanState): GhostContact[] {
   const contacts: GhostContact[] = [];
   for (const ghost of state.ghosts) {
     // Ghosts in the house are behind a wall Pac-Man cannot cross, and eaten ones
@@ -99,7 +99,7 @@ export function ghostContacts(state: GameState): GhostContact[] {
 }
 
 /** Scores an eaten ghost and sends it back to the house. */
-export function eatGhost(state: GameState, ghost: GhostState): GameEvent[] {
+export function eatGhost(state: PacmanState, ghost: GhostState): PacmanEvent[] {
   const tableIndex = Math.min(state.fright.eaten, GHOST_EATEN_SCORES.length - 1);
   const score = GHOST_EATEN_SCORES[tableIndex];
   state.fright.eaten += 1;

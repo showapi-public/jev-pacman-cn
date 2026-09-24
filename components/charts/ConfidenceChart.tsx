@@ -13,7 +13,7 @@ import {
   YAxis,
 } from "recharts";
 
-import type { DecisionPoint } from "@/lib/agent/telemetry";
+import type { SeriesPoint } from "@/lib/agent/telemetry";
 import { formatLatency, formatPercent } from "@/lib/ui";
 
 /**
@@ -32,7 +32,7 @@ import { formatLatency, formatPercent } from "@/lib/ui";
 const HEIGHT = 128;
 
 export interface ConfidenceChartProps {
-  points: readonly DecisionPoint[];
+  points: readonly SeriesPoint[];
 }
 
 /**
@@ -85,7 +85,7 @@ export default function ConfidenceChart({ points }: ConfidenceChartProps) {
     <div style={{ height: HEIGHT }} className="w-full" role="img" aria-label={summary}>
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
-          data={points as DecisionPoint[]}
+          data={points as SeriesPoint[]}
           margin={{ top: 8, right: 10, bottom: 0, left: 0 }}
           accessibilityLayer={false}
         >
@@ -130,17 +130,19 @@ export default function ConfidenceChart({ points }: ConfidenceChartProps) {
             />
           )}
 
+          {/* 选项占比画的是「本局主体」的分数，所以它用自身色 `--self` —— 换游戏
+              （吃豆人琥珀 / 蛇头绿）只换外壳上那一个变量，这张图不知道是哪个游戏。 */}
           <Area
             type="monotone"
             dataKey="chosenProbability"
             name="选项占比"
-            stroke="var(--pacman)"
+            stroke="var(--self)"
             strokeWidth={1.25}
             strokeOpacity={0.75}
-            fill="var(--pacman)"
+            fill="var(--self)"
             fillOpacity={0.08}
             dot={false}
-            activeDot={{ r: 2.5, fill: "var(--pacman)", stroke: "none" }}
+            activeDot={{ r: 2.5, fill: "var(--self)", stroke: "none" }}
             isAnimationActive={false}
             connectNulls
           />
@@ -177,7 +179,7 @@ export default function ConfidenceChart({ points }: ConfidenceChartProps) {
 interface TooltipPayload {
   active?: boolean;
   label?: number | string;
-  payload?: { payload: DecisionPoint }[];
+  payload?: { payload: SeriesPoint }[];
 }
 
 /** The hover readout: the decision's id, then both series side by side. */

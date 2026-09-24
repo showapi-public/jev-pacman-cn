@@ -6,7 +6,7 @@
  * one seeded random draw for frightened ghosts so a seed replays a whole game.
  */
 
-import type { Direction, GameState, GhostName, GhostState, Maze, TilePosition } from "./types";
+import type { Direction, PacmanState, GhostName, GhostState, Maze, TilePosition } from "./types";
 import { nextRandom, neighbor, squaredTileDistance, tileCenter } from "./types";
 import { getGhostChoices, isHouseTile } from "./pathfinding";
 import { occupiedTile } from "./collision";
@@ -66,7 +66,7 @@ export function houseExitTile(maze: Maze): TilePosition | null {
 }
 
 /** The tile a ghost is currently aiming at. */
-export function ghostTarget(ghost: GhostState, state: GameState): TilePosition {
+export function ghostTarget(ghost: GhostState, state: PacmanState): TilePosition {
   const { maze } = state;
 
   if (ghost.mode === "HOUSE" || ghost.mode === "EATEN") {
@@ -110,7 +110,7 @@ export function ghostTarget(ghost: GhostState, state: GameState): TilePosition {
  * the straight-line distance to the target (the arcade rule); frightened ghosts
  * draw from the seeded RNG instead.
  */
-export function chooseGhostDirection(ghost: GhostState, state: GameState): void {
+export function chooseGhostDirection(ghost: GhostState, state: PacmanState): void {
   const { maze } = state;
   const allowHouse = ghost.mode === "HOUSE" || ghost.mode === "EATEN";
   const choices = getGhostChoices(maze, ghost.tile, ghost.direction, allowHouse);

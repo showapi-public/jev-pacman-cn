@@ -7,7 +7,7 @@
  * small game snapshot.
  */
 
-import type { Direction, GameState, TilePosition } from "./types";
+import type { Direction, PacmanState, TilePosition } from "./types";
 import { DIRECTION_ORDER, neighbor, oppositeDirection, tileKey } from "./types";
 import { bfs, getMeaningfulDirections } from "./pathfinding";
 
@@ -43,7 +43,7 @@ export function isDangerousGhost(mode: string): boolean {
 }
 
 export function analyzeCandidates(
-  state: GameState,
+  state: PacmanState,
   junction: TilePosition,
   heading: Direction,
   directions: readonly Direction[],
@@ -121,7 +121,7 @@ function nearestGhostDistance(
  * either finds a choice (not a dead end) or runs out of corridor.
  */
 function probeDeadEnd(
-  maze: GameState["maze"],
+  maze: PacmanState["maze"],
   firstTile: TilePosition,
   direction: Direction,
 ): { deadEnd: boolean; depth: number | null } {
@@ -142,7 +142,7 @@ function probeDeadEnd(
 }
 
 /** The directions that are a real choice at a junction, in display order. */
-export function junctionChoices(state: GameState, junction: TilePosition, heading: Direction): Direction[] {
+export function junctionChoices(state: PacmanState, junction: TilePosition, heading: Direction): Direction[] {
   return DIRECTION_ORDER.filter((direction) =>
     getMeaningfulDirections(state.maze, junction, heading).includes(direction),
   );

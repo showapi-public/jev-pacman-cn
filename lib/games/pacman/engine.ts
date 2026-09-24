@@ -11,8 +11,8 @@
 
 import type {
   Direction,
-  GameEvent,
-  GameState,
+  PacmanEvent,
+  PacmanState,
   GhostState,
   Maze,
   TilePosition,
@@ -55,13 +55,13 @@ export function defaultMaze(): Maze {
   return mazeCache;
 }
 
-export function createGame(options: CreateGameOptions = {}): GameState {
+export function createGame(options: CreateGameOptions = {}): PacmanState {
   const maze = options.maze ?? defaultMaze();
   const seed = options.seed ?? 42;
   const corners = cornerTargets(maze);
   const level = options.level ?? 1;
 
-  const state: GameState = {
+  const state: PacmanState = {
     maze,
     status: "READY",
     tick: 0,
@@ -101,22 +101,22 @@ export function createGame(options: CreateGameOptions = {}): GameState {
   return state;
 }
 
-export function startGame(state: GameState): void {
+export function startGame(state: PacmanState): void {
   if (state.status === "GAME_OVER" || state.status === "CLEARED") return;
   state.status = "PLAYING";
 }
 
-export function pauseGame(state: GameState): void {
+export function pauseGame(state: PacmanState): void {
   if (state.status === "PLAYING") state.status = "PAUSED";
 }
 
-export function resumeGame(state: GameState): void {
+export function resumeGame(state: PacmanState): void {
   if (state.status === "PAUSED") state.status = "PLAYING";
 }
 
 /** Puts Pac-Man and the ghosts back on their spawns, keeping score, pellets and level. */
-export function respawnActors(state: GameState): GameEvent[] {
-  const events: GameEvent[] = [];
+export function respawnActors(state: PacmanState): PacmanEvent[] {
+  const events: PacmanEvent[] = [];
   state.pacman.tile = { ...state.maze.pacmanSpawn };
   state.pacman.position = tileCenter(state.maze.pacmanSpawn);
   state.pacman.direction = "LEFT";
@@ -142,7 +142,7 @@ export function respawnActors(state: GameState): GameEvent[] {
 }
 
 /** The maze's pellets come back; the level number goes up. */
-export function startNextLevel(state: GameState): GameEvent[] {
+export function startNextLevel(state: PacmanState): PacmanEvent[] {
   state.level += 1;
   state.pellets = new Set(state.maze.initialPellets.map((tile) => tileKey(tile)));
   state.powerPellets = new Set(state.maze.initialPowerPellets.map((tile) => tileKey(tile)));
@@ -153,7 +153,7 @@ export function startNextLevel(state: GameState): GameEvent[] {
 }
 
 /** The one and only call site that changes Pac-Man's requested direction. */
-export function requestDirection(state: GameState, direction: Direction | null): void {
+export function requestDirection(state: PacmanState, direction: Direction | null): void {
   state.pacman.requestedDirection = direction;
 }
 
@@ -161,8 +161,8 @@ export function requestDirection(state: GameState, direction: Direction | null):
  * Advances the world by one fixed step. Everything the game decides on its own
  * happens here: pellets, ghost AI, collisions, lives, levels.
  */
-export function stepGame(state: GameState, dtMs: number = FIXED_DT_MS): GameEvent[] {
-  const events: GameEvent[] = [];
+export function stepGame(state: PacmanState, dtMs: number = FIXED_DT_MS): PacmanEvent[] {
+  const events: PacmanEvent[] = [];
   if (state.status !== "PLAYING") return events;
 
   state.tick += 1;
@@ -202,7 +202,7 @@ export function stepGame(state: GameState, dtMs: number = FIXED_DT_MS): GameEven
   return events;
 }
 
-function advanceTimers(state: GameState, dtMs: number, events: GameEvent[]): void {
+function advanceTimers(state: PacmanState, dtMs: number, events: PacmanEvent[]): void {
   if (state.fright.active) {
     state.fright.remainingMs -= dtMs;
     if (state.fright.remainingMs <= 0) events.push(...endFrightened(state));
@@ -220,8 +220,8 @@ function advanceTimers(state: GameState, dtMs: number, events: GameEvent[]): voi
   }
 }
 
-function updateGhost(ghost: GhostState, state: GameState, dtMs: number, dt: number): GameEvent[] {
-  const events: GameEvent[] = [];
+function updateGhost(ghost: GhostState, state: PacmanState, dtMs: number, dt: number): PacmanEvent[] {
+  const events: PacmanEvent[] = [];
   const { maze } = state;
 
   if (ghost.mode === "EATEN") {
@@ -262,8 +262,8 @@ function updateGhost(ghost: GhostState, state: GameState, dtMs: number, dt: numb
   return events;
 }
 
-function resolveContacts(state: GameState): GameEvent[] {
-  const events: GameEvent[] = [];
+function resolveContacts(state: PacmanState): PacmanEvent[] {
+  const events: PacmanEvent[] = [];
   const contacts = ghostContacts(state);
 
   for (const contact of contacts) {

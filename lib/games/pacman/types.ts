@@ -2,9 +2,16 @@
  * Core types for the Pac-Man engine.
  *
  * The engine is pure data + pure functions: no React, no canvas, no network, no
- * Math.random. The Jev observation builder and the canvas renderer both read
- * these structures and nothing else.
+ * Math.random. The observation builder and the canvas renderer both read these
+ * structures and nothing else.
+ *
+ * Two names here are worth keeping straight: `PacmanActor` is Pac-Man himself
+ * (where he is and which way he faces), `PacmanState` is the whole world
+ * (maze, pellets, ghosts, score). Only the latter satisfies the cross-game
+ * `GameState` contract in `../types.ts`.
  */
+
+import type { GameStatus } from "../types";
 
 export type Direction = "UP" | "DOWN" | "LEFT" | "RIGHT";
 
@@ -57,7 +64,7 @@ export interface Maze {
   readonly initialPowerPellets: readonly TilePosition[];
 }
 
-export interface PacmanState {
+export interface PacmanActor {
   tile: TilePosition;
   position: Position;
   direction: Direction;
@@ -90,7 +97,12 @@ export interface GhostState {
   scatterTarget: TilePosition;
 }
 
-export type GameStatus = "READY" | "PLAYING" | "PAUSED" | "GAME_OVER" | "CLEARED";
+/**
+ * The five states every game shares. Defined once in the cross-game contract so
+ * that adding a state cannot leave the telemetry, the console and one engine
+ * disagreeing about the list.
+ */
+export type { GameStatus };
 
 export interface FrightState {
   active: boolean;
@@ -104,7 +116,7 @@ export interface ModeTimer {
   remainingMs: number;
 }
 
-export interface GameState {
+export interface PacmanState {
   maze: Maze;
   status: GameStatus;
   /** Fixed-timestep ticks since this game started. */
@@ -125,7 +137,7 @@ export interface GameState {
   pellets: Set<string>;
   /** Remaining power pellets, keyed `"x,y"`. */
   powerPellets: Set<string>;
-  pacman: PacmanState;
+  pacman: PacmanActor;
   ghosts: GhostState[];
   fright: FrightState;
   modeTimer: ModeTimer;
@@ -133,7 +145,7 @@ export interface GameState {
   deathPauseMs: number | null;
 }
 
-export type GameEvent =
+export type PacmanEvent =
   | { type: "PELLET_EATEN"; tile: TilePosition; score: number }
   | { type: "POWER_PELLET_EATEN"; tile: TilePosition; score: number }
   | { type: "GHOST_EATEN"; ghost: GhostName; score: number }
@@ -189,21 +201,6 @@ export const DECISION_DEADLINE_MS = (DECISION_PREFETCH_TILES / PACMAN_SPEED_TILE
 
 /** Minimum spacing between two Jev requests. */
 export const MIN_JEV_INTERVAL_MS = 100;
-
-/**
- * How long the client keeps the request open before aborting it outright.
- *
- * This is NOT the decision deadline — that is DECISION_DEADLINE_MS, and it is
- * shorter. This only bounds how long a socket is held, and is deliberately left
- * past the deadline: an answer that missed the deadline is already unusable, but
- * letting it land anyway means the record still carries its *measured* latency.
- * Aborting at the deadline would turn every slow answer into a bare TIMEOUT with
- * a null latency, hiding the very distribution that makes the miss rate legible.
- *
- * 1500 ms also stays the outer bound the integration test exercises: a response
- * that slow must be discarded safely rather than crash the game.
- */
-export const DECISION_TIMEOUT_MS = 1500;
 
 /* --------------------------------------------------------------- direction */
 
@@ -309,15 +306,10 @@ export function distanceToCenter(position: Position): number {
 
 /* --------------------------------------------------------------- seeded rng */
 
-/** mulberry32: a small deterministic PRNG so a seed replays a whole game. */
-export function nextRandom(state: number): { value: number; state: number } {
-  let t = (state + 0x6d2b79f5) | 0;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  const value = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  return { value, state: t | 0 };
-}
+/**
+ * The PRNG is not Pac-Man's: it moved to `lib/rng.ts` so the baseline players can
+ * use the same one without importing a game. Re-exported here because every
+ * engine module already reaches for it through this file.
+ */
+export { nextRandom, seedToRngState } from "../../rng";
 
-export function seedToRngState(seed: number): number {
-  return seed | 0;
-}

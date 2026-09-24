@@ -4,7 +4,6 @@ import * as React from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from "recharts";
 
 import { overDeadlineCount, type LatencyBucket } from "@/lib/agent/telemetry";
-import { DECISION_DEADLINE_MS } from "@/lib/games/pacman/types";
 
 /**
  * Where the answer times land: one bar per fixed bucket.
@@ -12,18 +11,33 @@ import { DECISION_DEADLINE_MS } from "@/lib/games/pacman/types";
  * Buckets are fixed rather than derived from the data, so the same shape means
  * the same thing in every session — a chart whose axis moves while you watch it
  * cannot be compared to the session before.
+ *
+ * What moves instead is the *deadline*: the window a decision actually had is
+ * `budgetMs ÷ speed`, so it arrives as a prop rather than being read from a
+ * game constant the chart has no business knowing.
  */
 
 const HEIGHT = 108;
 
-export default function LatencyChart({ buckets }: { buckets: readonly LatencyBucket[] }) {
+export default function LatencyChart({
+  buckets,
+  deadlineMs,
+}: {
+  buckets: readonly LatencyBucket[];
+  deadlineMs: number;
+}) {
   // Same reasoning as the confidence chart: the numbers are in the tiles and the
   // counts list beside this, so the chart is a labelled image rather than a
   // nameless focusable `role="application"` surface.
-  // One bucket edge is the decision deadline, so the histogram already answers
-  // "how many arrived too late" — it just has to say so out loud. Stating it in
-  // the label keeps the chart's conclusion where a reader (or a screen reader)
-  // meets it, without colouring the bars and inventing a second meaning for hue.
+  // The line is about "how many arrived too late", and it has to say so out
+  // loud. Stating it in the label keeps the chart's conclusion where a reader
+  // (or a screen reader) meets it, without colouring the bars and inventing a
+  // second meaning for hue.
+  //
+  // It counts *buckets*, and says so: a bucket is marked late when its ceiling
+  // is past the deadline, so at a speed where the deadline falls inside a bucket
+  // rather than on its edge, "线外的分桶" holds answers on both sides of the
+  // line. Claiming a per-record count here would be a number nobody computed.
   const total = buckets.reduce((sum, bucket) => sum + bucket.count, 0);
   const late = overDeadlineCount(buckets);
   const peak = buckets.reduce<LatencyBucket | null>(
@@ -33,7 +47,7 @@ export default function LatencyChart({ buckets }: { buckets: readonly LatencyBuc
   const summary =
     total === 0
       ? "延迟分布：本次会话还没有决策延迟可统计。"
-      : `延迟分布，共 ${total} 次决策；最多的一档是 ${peak?.label} ms，共 ${peak?.count} 次；其中 ${late} 次超过了 ${DECISION_DEADLINE_MS} ms 的可用窗口。`;
+      : `延迟分布，共 ${total} 次决策；最多的一档是 ${peak?.label} ms，共 ${peak?.count} 次；截止线约 ${Math.round(deadlineMs)} ms，线外的分桶里另有 ${late} 次。`;
 
   return (
     <div style={{ height: HEIGHT }} className="w-full" role="img" aria-label={summary}>

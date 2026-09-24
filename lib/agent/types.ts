@@ -1,71 +1,51 @@
 /**
- * The agent layer: everything that turns game facts into a decision.
+ * The agent layer's own types: the protocol between the controller and whatever
+ * answers its questions, plus the telemetry record the panels read.
  *
- * The controller never computes a good move itself. It builds an observation
- * out of code-owned facts, asks a DecisionProvider, validates the answer and
- * applies it — or, if the answer is not there in time, applies the deliberately
- * dumb fallback and says so out loud.
+ * The contract between the agent layer and the *games* lives in
+ * `lib/games/types.ts`. Whatever both sides need is re-exported here, so that
+ * `lib/agent/*`, `components/*` and the API routes can keep importing from one
+ * place without having to know which module a name was born in.
  */
 
-import type { Direction, GameEvent, GameState, GhostMode, TilePosition } from "../games/pacman/types";
-import type { CandidateAnalysis } from "../games/pacman/analysis";
+import type {
+  ActionId,
+  DecideRequest,
+  DecisionPoint,
+  FactRow,
+  GameEvent,
+  GameState,
+  GameStatus,
+  Observation,
+  Question,
+  RecentDecision,
+} from "../games/types";
 
-/* ------------------------------------------------------------- observation */
-
-export interface GhostObservation {
-  name: string;
-  tile: TilePosition;
-  mode: GhostMode;
-  /** BFS distance from Pac-Man to this ghost, null when the ghost is behind the house gate. */
-  distanceToPacman: number | null;
-}
-
-export interface RecentDecision {
-  junction: TilePosition;
-  chosen: Direction;
-}
-
-export interface JevObservation {
-  objective: string;
-  game: {
-    score: number;
-    lives: number;
-    pelletsRemaining: number;
-    powerPelletsRemaining: number;
-  };
-  pacman: {
-    tile: TilePosition;
-    heading: Direction;
-  };
-  targetJunction: {
-    tile: TilePosition;
-    legalDirections: Direction[];
-  };
-  mode: {
-    frightened: boolean;
-    frightenedRemainingMs: number;
-  };
-  ghosts: GhostObservation[];
-  candidates: Partial<Record<Direction, CandidateAnalysis>>;
-  recentDecisions: RecentDecision[];
-}
+export type {
+  ActionId,
+  DecideRequest,
+  DecisionPoint,
+  FactRow,
+  GameEvent,
+  GameState,
+  GameStatus,
+  Observation,
+  Question,
+  RecentDecision,
+};
 
 /* ---------------------------------------------------------------- decision */
 
+/** How the answer was produced. *Who* produced it is `DecisionTelemetry.model`. */
 export type DecisionSource = "JEV" | "MOCK" | "RANDOM" | "HEURISTIC" | "SCRIPTED";
-
-export interface DecideRequest {
-  decisionId: string;
-  observation: JevObservation;
-  legalDirections: Direction[];
-}
 
 export interface DecideResponse {
   decisionId: string;
-  direction: Direction;
+  action: ActionId;
   confidence: number | null;
-  probabilities: Partial<Record<Direction, number>>;
+  probabilities: Partial<Record<ActionId, number>>;
   latencyMs: number;
+  /** The model or channel that answered, when the provider knows it. */
   model: string | null;
 }
 
@@ -75,7 +55,7 @@ export interface DecisionResult extends DecideResponse {
 
 export interface DecisionProvider {
   readonly name: DecisionSource;
-  /** Rejects (never resolves) with a DecideError when Jev cannot answer. */
+  /** Rejects (never resolves) with a DecideError when the model cannot answer. */
   decide(request: DecideRequest, signal?: AbortSignal): Promise<DecisionResult>;
 }
 
@@ -97,19 +77,24 @@ export type TelemetryStatus = "PENDING" | "APPLIED" | "STALE" | "TIMEOUT" | "ERR
 
 export interface DecisionTelemetry {
   decisionId: string;
+  /** The decision point this answer belongs to (`DecisionPoint.key`). */
+  pointKey: string;
+  /** Where the decision was taken, in tiles; null for games that have no such place. */
+  at: { x: number; y: number } | null;
   tick: number;
   epoch: number;
-  junction: TilePosition;
-  legalDirections: Direction[];
+  legalActions: ActionId[];
   requestedAt: number;
   respondedAt: number | null;
   latencyMs: number | null;
-  choice: Direction | null;
-  /** What Pac-Man actually did at the junction (null while the game has not got there yet). */
-  applied: Direction | null;
-  probabilities: Partial<Record<Direction, number>>;
+  choice: ActionId | null;
+  /** What the game actually did at the decision point (null while it has not got there yet). */
+  applied: ActionId | null;
+  probabilities: Partial<Record<ActionId, number>>;
   confidence: number | null;
   source: DecisionSource | "FALLBACK";
+  /** Who answered (channel or model name); `source` says how. */
+  model: string | null;
   status: TelemetryStatus;
   note: string | null;
 }
@@ -119,6 +104,3 @@ export interface GameLogEntry {
   tick: number;
   event: GameEvent;
 }
-
-export { type CandidateAnalysis };
-export type { GameState };

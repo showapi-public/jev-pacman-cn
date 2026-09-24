@@ -3,23 +3,23 @@ import { describe, expect, it } from "vitest";
 import { AgentController } from "@/lib/agent/controller";
 import { computeMetrics, latencyHistogram, mean, overDeadlineCount, percentile } from "@/lib/agent/telemetry";
 import type { DecisionTelemetry } from "@/lib/agent/types";
-import { startGame, stepGame } from "@/lib/games/pacman/engine";
 import {
   DECISION_DEADLINE_MS,
   DECISION_PREFETCH_TILES,
-  FIXED_DT_MS,
   PACMAN_SPEED_TILES_PER_SEC,
 } from "@/lib/games/pacman/types";
-import { ManualProvider, flush, keepPellets, miniGame, placePacman, tile } from "./helpers";
+import { FAKE_DRIVER, ManualProvider, fakeGame, flush, stepFake } from "./helpers";
+import type { FakeState } from "./helpers";
 
 /** A minimal record; only the fields an assertion reads need to be right. */
 function record(overrides: Partial<DecisionTelemetry> = {}): DecisionTelemetry {
   return {
     decisionId: "d1",
+    pointKey: "1:g0",
+    at: { x: 0, y: 0 },
     tick: 0,
     epoch: 1,
-    junction: tile(1, 4),
-    legalDirections: ["UP", "RIGHT"],
+    legalActions: ["A", "B"],
     requestedAt: 0,
     respondedAt: null,
     latencyMs: null,
@@ -28,6 +28,7 @@ function record(overrides: Partial<DecisionTelemetry> = {}): DecisionTelemetry {
     probabilities: {},
     confidence: null,
     source: "JEV",
+    model: null,
     status: "PENDING",
     note: null,
     ...overrides,
@@ -36,32 +37,33 @@ function record(overrides: Partial<DecisionTelemetry> = {}): DecisionTelemetry {
 
 /** Which bucket a single latency lands in, by label. */
 function bucketOf(latencyMs: number): string {
-  const buckets = latencyHistogram([record({ latencyMs })]);
+  const buckets = latencyHistogram([record({ latencyMs })], DECISION_DEADLINE_MS);
   const hit = buckets.find((bucket) => bucket.count > 0);
   if (!hit) throw new Error(`latency ${latencyMs} landed in no bucket`);
   return hit.label;
 }
 
 /**
- * Plays the mini maze until the controller has a request in flight, and leaves it
+ * Walks the fake game until the controller has a request in flight, and leaves it
  * there. `now` is pinned and the timeout is a no-op: nothing answers in these
  * tests, so nothing should fire behind them either.
+ *
+ * The pinned clock also stops the controller from asking a second time, which is
+ * what makes "exactly one record" a meaningful assertion below.
  */
 async function untilRequestInFlight(provider: ManualProvider) {
-  const state = miniGame();
-  keepPellets(state, []);
-  placePacman(state, 2, 1, "LEFT"); // the walk leads through (1, 1) to the junction (1, 4)
-  startGame(state);
-
-  const controller = new AgentController({
+  const state = fakeGame();
+  const controller = new AgentController<FakeState>({
+    driver: FAKE_DRIVER,
+    game: "fake",
     provider,
     now: () => 0,
     scheduleTimeout: () => () => {},
   });
 
-  for (let tick = 0; tick < 200 && provider.pending === 0; tick += 1) {
+  for (let tick = 0; tick < 40 && provider.pending === 0; tick += 1) {
     controller.tick(state);
-    stepGame(state, FIXED_DT_MS);
+    stepFake(state);
   }
   expect(provider.pending).toBe(1);
 
@@ -85,12 +87,15 @@ describe("latency buckets", () => {
   });
 
   it("ignores records with no usable latency", () => {
-    const buckets = latencyHistogram([
-      record({ latencyMs: null }),
-      record({ latencyMs: Number.NaN }),
-      record({ latencyMs: Number.POSITIVE_INFINITY }),
-      record({ latencyMs: 120 }),
-    ]);
+    const buckets = latencyHistogram(
+      [
+        record({ latencyMs: null }),
+        record({ latencyMs: Number.NaN }),
+        record({ latencyMs: Number.POSITIVE_INFINITY }),
+        record({ latencyMs: 120 }),
+      ],
+      DECISION_DEADLINE_MS,
+    );
     expect(buckets.reduce((sum, bucket) => sum + bucket.count, 0)).toBe(1);
   });
 });
@@ -105,7 +110,9 @@ describe("the deadline split", () => {
     // deadline — otherwise the chart's split stops meaning "arrived too late"
     // (design-system §6.5). It does *not* have to match the `过期回答` count:
     // that counts discards, this counts lateness, and see the last block here.
-    const flags = latencyHistogram([]).map((bucket) => [bucket.label, bucket.withinDeadline] as const);
+    const flags = latencyHistogram([], DECISION_DEADLINE_MS).map(
+      (bucket) => [bucket.label, bucket.withinDeadline] as const,
+    );
     expect(flags).toEqual([
       ["<150", true],
       ["150–300", true],
@@ -116,11 +123,29 @@ describe("the deadline split", () => {
     ]);
   });
 
+  it("moves the line, never the edges: a compressed window is still the same chart", () => {
+    // The speed multiplier shrinks the window (see `decisionWindowMs`); the
+    // bucket edges stay put so two sessions remain comparable. A bucket counts
+    // as inside the window only while its *whole* range is, so a 400 ms window
+    // keeps the first two and drops `300–500` — the same chart, a nearer line.
+    const flags = latencyHistogram([], 400).map((bucket) => bucket.withinDeadline);
+    expect(flags).toEqual([true, true, false, false, false, false]);
+    // And at 2× the window is 250 ms, so even `150–300` falls outside it.
+    expect(latencyHistogram([], 250).map((bucket) => bucket.withinDeadline)).toEqual([
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+  });
+
   it("never counts an answer at or past the deadline as within it", () => {
     // The invariant the chart's conclusion rests on: right of the edge really
     // is "too late", so the label can say so without lying.
     const bucketFor = (latencyMs: number) =>
-      latencyHistogram([record({ latencyMs })]).find((bucket) => bucket.count > 0);
+      latencyHistogram([record({ latencyMs })], DECISION_DEADLINE_MS).find((bucket) => bucket.count > 0);
 
     for (const latencyMs of [500, 700, 900, 1500]) {
       expect(bucketFor(latencyMs)?.withinDeadline).toBe(false);
@@ -137,11 +162,11 @@ describe("computeMetrics", () => {
     // *request*, and its answer did not come from Jev. Counting it as either
     // makes the applied rate look far worse than it is.
     const records = [
-      record({ decisionId: "d1", source: "JEV", status: "APPLIED", applied: "UP", latencyMs: 200 }),
-      record({ decisionId: "f1", source: "FALLBACK", status: "APPLIED", applied: "RIGHT" }),
+      record({ decisionId: "d1", source: "JEV", status: "APPLIED", applied: "A", latencyMs: 200 }),
+      record({ decisionId: "f1", source: "FALLBACK", status: "APPLIED", applied: "B" }),
       record({ decisionId: "d2", source: "JEV", status: "STALE" }),
     ];
-    const metrics = computeMetrics(records, miniGame());
+    const metrics = computeMetrics(records);
 
     expect(metrics.requests).toBe(2); // d1 + d2 — the fallback is not a request
     expect(metrics.applied).toBe(1); // only d1 was a provider answer that landed
@@ -151,25 +176,36 @@ describe("computeMetrics", () => {
   });
 
   it("reports no applied rate before any request has been made", () => {
-    expect(computeMetrics([], miniGame()).appliedRate).toBeNull();
+    expect(computeMetrics([]).appliedRate).toBeNull();
+  });
+
+  it("has no game in it: the same records give the same numbers whatever game asked", () => {
+    // `computeMetrics` takes records and nothing else. This is the assertion
+    // that the game-shaped arguments are really gone — the numbers cannot move
+    // with the score, the level or the board.
+    const records = [record({ status: "APPLIED", applied: "A", latencyMs: 120 })];
+    expect(computeMetrics(records)).toEqual(computeMetrics([...records]));
   });
 });
 
 describe("overDeadlineCount", () => {
   it("adds up only the buckets past the deadline", () => {
-    const buckets = latencyHistogram([
-      record({ latencyMs: 100 }), // <150      in time
-      record({ latencyMs: 100 }), // <150      in time
-      record({ latencyMs: 400 }), // 300–500   in time
-      record({ latencyMs: 600 }), // 500–800   too late
-      record({ latencyMs: 2000 }), // ≥1200     too late
-      record({ latencyMs: null }), // unmeasured
-    ]);
+    const buckets = latencyHistogram(
+      [
+        record({ latencyMs: 100 }), // <150      in time
+        record({ latencyMs: 100 }), // <150      in time
+        record({ latencyMs: 400 }), // 300–500   in time
+        record({ latencyMs: 600 }), // 500–800   too late
+        record({ latencyMs: 2000 }), // ≥1200     too late
+        record({ latencyMs: null }), // unmeasured
+      ],
+      DECISION_DEADLINE_MS,
+    );
     expect(overDeadlineCount(buckets)).toBe(2);
   });
 
   it("is zero when every measured answer landed inside the deadline", () => {
-    const buckets = latencyHistogram([record({ latencyMs: 90 }), record({ latencyMs: 480 })]);
+    const buckets = latencyHistogram([record({ latencyMs: 90 }), record({ latencyMs: 480 })], DECISION_DEADLINE_MS);
     expect(overDeadlineCount(buckets)).toBe(0);
   });
 });
@@ -183,7 +219,7 @@ describe("overDeadlineCount", () => {
 describe("overDeadlineCount is not `stale`", () => {
   it("misses a request discarded before any answer arrived", async () => {
     const provider = new ManualProvider();
-    const { controller, state } = await untilRequestInFlight(provider);
+    const { controller } = await untilRequestInFlight(provider);
 
     // Nothing has come back yet, so there is no latency to bucket — but the
     // request is still a decision that was thrown away.
@@ -196,20 +232,20 @@ describe("overDeadlineCount is not `stale`", () => {
     expect(records[0].status).toBe("STALE");
     expect(records[0].latencyMs).toBeNull();
 
-    expect(computeMetrics(records, state).stale).toBe(1);
-    expect(overDeadlineCount(latencyHistogram(records))).toBe(0);
+    expect(computeMetrics(records).stale).toBe(1);
+    expect(overDeadlineCount(latencyHistogram(records, DECISION_DEADLINE_MS))).toBe(0);
   });
 
   it("misses an answer that arrived in time but was discarded anyway", async () => {
     const provider = new ManualProvider();
-    const { controller, state } = await untilRequestInFlight(provider);
+    const { controller } = await untilRequestInFlight(provider);
 
-    provider.respond("RIGHT"); // ManualProvider reports a 120 ms latency
+    provider.respond("B"); // ManualProvider reports a 120 ms latency
     await flush(4);
 
     const answered = controller.snapshot().telemetry[0];
     expect(answered.latencyMs).toBe(120);
-    expect(answered.status).toBe("PENDING"); // in hand, waiting for the junction
+    expect(answered.status).toBe("PENDING"); // in hand, waiting for the gate
 
     // Discarded for the same non-latency reason as above. This time there *is* a
     // measurement, and it sits well inside the deadline: `stale` counts it, the
@@ -219,8 +255,8 @@ describe("overDeadlineCount is not `stale`", () => {
     const records = controller.snapshot().telemetry;
     expect(records[0].status).toBe("STALE");
     expect(records[0].latencyMs).toBe(120);
-    expect(computeMetrics(records, state).stale).toBe(1);
-    expect(overDeadlineCount(latencyHistogram(records))).toBe(0);
+    expect(computeMetrics(records).stale).toBe(1);
+    expect(overDeadlineCount(latencyHistogram(records, DECISION_DEADLINE_MS))).toBe(0);
   });
 });
 

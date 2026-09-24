@@ -190,6 +190,22 @@ P3 才引入第二个实现，此时契约已被一个真实游戏打磨过一�
 `tests/models.test.ts`：解析含空字段继承、空 key（`configured:false`）、脏条目的容错，
 且**脱敏结果里 grep 不到任何 key/baseURL 片段**。
 
+**偏差（执行时调整）**：
+
+1. P2-3 顺手把**截止线公式**落成了 `lib/agent/telemetry.ts` 的 `decisionWindowMs(budgetMs, speed)`
+   （原排在 P2-5 的「标注改为 `budgetMs / speed`」）。理由：这条口径有一条测试线要拉
+   （`budgetMs` 与速度无关、墙钟窗口随速度压缩），而它属于 agent 层而不是组件层；
+   P2-5 只负责把它的结果画到图上、写进文案。
+2. `modelId` 的**传递链**比计划多一环：`DecideRequest.modelId` 是控制器在 `request()` 里装配的，
+   所以 `AgentController` 多了 `modelId` 选项与 `setModel()`（切模型丢弃在途请求）。计划只写了
+   「`client.ts` 透传」，但没有源头就无处可透传；P2-6 的 ModelPicker 直接调 `setModel`。
+3. **没有引入 `server-only` 依赖**（`package.json` 里没有它，靠传递依赖不可靠）。
+   server-only 的意图改用两条更硬的约束实现：`ModelEntry`（带密钥）与 `PublicModelEntry`
+   （没地方放密钥）是两个类型、路由只序列化后者，且 `tests/models.test.ts` 断言脱敏 JSON 里
+   grep 不到任何 key/baseURL/字段名的碎片。
+4. **默认速度 1× 在 P2-3 落地**（此前是 0.5×）：它与「有效预取 = `prefetch × speed`」是同一次
+   语义修正的两半，分两个任务做只会让中间态的口径自相矛盾。
+
 ### P2-5 右栏泛型化 + `--self` 自身色
 
 - `components/DirectionCompass.tsx` → `components/console/ActionCompass.tsx`：吃 `ActionVocab`，
@@ -207,6 +223,26 @@ P3 才引入第二个实现，此时契约已被一个真实游戏打磨过一�
 
 > 注：`SessionStats` 与控制条的组件级断言受限于「测试环境无 jsdom」，本阶段以 `tsc` + 浏览器实测兜底，
 > 若需要组件级断言，会在 P2-7 收口时单独提出来问你（是否引入 DOM 测试环境，属项目级决定）。
+
+**偏差（执行时调整）**：
+
+1. `GameMeta` 增两个字段：`actor`（文案里指代「被操控的那个东西」，吃豆人 / 蛇）与 `place`
+   （指代「决策发生的地方」，路口 / 格子）。原计划只想了 `selfColor`，但右栏文案（如
+   `DecisionTimeline` 的空状态、「地点」格）必须说人话，又不能写死游戏名 —— 这两个词提到
+   元数据里，组件就彻底零游戏知识。
+2. 右栏输入契约定为 `components/console/input.ts` 的 **`ConsoleInput`**：除计划里的
+   `records`/`vocab` 外，还包了 `budgetMs`、`speed`、`events`、`actor`、`place`、`steerable`。
+   理由：`DecisionConsole` 的子组件本来各自吃 3~4 个零散 props，泛型化后数量翻倍；收成一个
+   结构体后，加字段（比如以后的 `level`）不用改 8 个签名。
+3. `DECISION_TIMEOUT_MS` 从 `lib/games/pacman/types.ts` **移到 `lib/agent/controller.ts` 并导出**
+   （它本来就是 controller 的超时，放在游戏类型里是历史错位；`SessionStats` 与
+   `decisionWindowMs` 同源引用，避免两处各拷一份常量）。
+4. 新增 `lib/games/pacman/copy.ts`（`describePacmanEvent`）：`lib/ui.ts` 原来直接 import
+   `PacmanEvent` 来写事件句子，这让共用模块变成游戏相关。事件形状只有游戏自己知道，句子里沉。
+5. 新增 `components/console/ActionGlyph.tsx`：`slot()` → Phosphor 箭头是**唯一的 UI 层动作映射**，
+   动作盘、概率阶梯、时间线三处共用（此前三处各写一遍箭头）。
+6. `app/globals.css` 的 `:root` 加 `--self: var(--text-primary)` 兜底：组件里 `var(--self)` 是
+   硬引用，外壳漏挂时若无兜底会整块掉色，有兜底则退化成中性色。
 
 ### P2-6 外壳、会话 hook 与多游戏路由
 
