@@ -13,7 +13,13 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy": "bash deploy/deploy.sh update",
+    "deploy:init": "bash deploy/deploy.sh init",
+    "deploy:local": "bash deploy/deploy.sh local",
+    "deploy:status": "bash deploy/deploy.sh status",
+    "deploy:rollback": "bash deploy/deploy.sh rollback",
+    "deploy:logs": "bash deploy/deploy.sh logs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

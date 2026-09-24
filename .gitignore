@@ -15,3 +15,7 @@ coverage/
 
 .workbuddy/
 bun.lock
+
+# 部署脚本 + pm2 配置 + 生产密钥（TYPESAFE_API_KEY）：只存在于本机，
+# 不进这个公开仓库。要版本化请另存到私有仓库。
+/deploy/
