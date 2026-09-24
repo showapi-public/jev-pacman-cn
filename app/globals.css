@@ -21,7 +21,7 @@
 
    House rules for anything styling itself against these tokens:
      - no raw hex outside this file; always a token or a utility built on one
-     - 11px is the smallest text size; every number is font-mono + tabular-nums
+     - 12px is the smallest text size; every number is font-mono + tabular-nums
      - interactive elements get a hover state and a :focus-visible ring
      - no emoji, no drop shadows (elevation is one luminance step)
 --------------------------------------------------------------------------- */
@@ -185,12 +185,15 @@
   --r-xl: 12px;
   --r-pill: 999px;
 
-  /* type scale */
-  --fs-micro: 11px;
-  --fs-body: 13px;
-  --fs-title: 15px;
-  --fs-kpi: 19px;
-  --fs-hero: 34px;
+  /* type scale — one step up from the first cut, which read cramped in Chinese.
+     Ratios are kept, so the hierarchy is unchanged: micro/body = 0.857,
+     title/body = 1.143, kpi/body = 1.5. Raising these is the whole of a
+     "make the text bigger" change; nothing else in the app hardcodes a size. */
+  --fs-micro: 12px;
+  --fs-body: 14px;
+  --fs-title: 16px;
+  --fs-kpi: 21px;
+  --fs-hero: 36px;
 
   /* motion — transform/opacity only, interruptible */
   --dur-fast: 120ms;
@@ -414,7 +417,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* An 11px micro-label, the app's second voice. No `text-transform`: the UI
+  /* A 12px micro-label, the app's second voice. No `text-transform`: the UI
      speaks Chinese, and upper-casing is meaningless for CJK while the wide
      tracking that reads well on Latin micro-labels reads as gaps here. Latin
      micro-labels are written already-uppercase at the call site. */

@@ -15,6 +15,21 @@ import { formatMs } from "@/lib/ui";
  * amber. Pellets, ghosts and survival are running totals; lives and level are
  * the run's state. Every value is mono and tabular, so numbers that tick never
  * move the strip, and nothing here needs an explanation longer than a tooltip.
+ *
+ * A lane's addendum (`已吃 240`) is one type step *below* the value it follows,
+ * so it reads as a caption rather than a second number — label / value /
+ * addendum = 12 / 16 / 12. It is a nowrap item in a `flex-wrap` row, and that is
+ * load-bearing rather than decorative. The six registers are equal sixths, so at
+ * a 1280px viewport a register gets 89px of content width while a three-digit
+ * value plus `已吃 240` needs 86px — and the first cut of this strip, before the
+ * type scale went up, sat at 0.7px of margin. Run-on inline, that deficit broke
+ * the phrase *mid-word*: `已吃 40` split with `40` alone on line 2, where it read
+ * as a statistic of its own. A nowrap flex item can only share the value's
+ * baseline or take a caption line whole, so a register ever grows by one clean
+ * line and never by a broken one. The separator is a 4px flex gap and not a `·`
+ * for the same reason: a middot costs 14px of mono whitespace — exactly the
+ * difference between one line and two at 1280 — and a middot leading a wrapped
+ * line reads as a bullet.
  */
 
 /** Pac-Man starts with three; the strip shows those three slots and no more. */
@@ -52,11 +67,11 @@ export function GameMeters({ ui }: { ui: UiSnapshot }) {
 
       <Meter
         label="剩余豆子"
-        hint="场上还没有吃掉的豆子（含能量豆）。括号内是本局已吃掉的豆子数。"
+        hint="场上还没有吃掉的豆子（含能量豆）；紧跟在后面的是本局已经吃掉的豆子数。"
       >
-        <span className="num text-fg">
+        <span className="num flex flex-wrap items-baseline gap-x-1 text-fg">
           {ui.pelletsRemaining + ui.powerPelletsRemaining}
-          <span className="text-body text-fg-3"> · 已吃 {ui.pelletsEaten}</span>
+          <span className="whitespace-nowrap text-micro text-fg-3">已吃 {ui.pelletsEaten}</span>
         </span>
       </Meter>
 
@@ -65,10 +80,12 @@ export function GameMeters({ ui }: { ui: UiSnapshot }) {
         icon={<Ghost weight="fill" />}
         hint="吃掉能量豆后，幽灵会短暂进入受惊状态，此时可以反过来吃掉它们。"
       >
-        <span className="num text-fg">
+        <span className="num flex flex-wrap items-baseline gap-x-1 text-fg">
           {ui.ghostsEaten}
           {frightened > 0 ? (
-            <span className="text-body text-frightened"> · {frightened} 个受惊</span>
+            <span className="whitespace-nowrap text-micro text-frightened">
+              {frightened} 个受惊
+            </span>
           ) : null}
         </span>
       </Meter>
@@ -86,7 +103,7 @@ export function GameMeters({ ui }: { ui: UiSnapshot }) {
 
 interface MeterProps {
   label: string;
-  /** A 11px glyph that speeds up scanning; decorative, so hidden from AT. */
+  /** A 12px glyph that speeds up scanning; decorative, so hidden from AT. */
   icon?: ReactNode;
   hint: string;
   children: ReactNode;

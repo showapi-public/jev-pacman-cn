@@ -94,7 +94,7 @@ export default function ConfidenceChart({ points }: ConfidenceChartProps) {
             dataKey="index"
             type="number"
             domain={[firstIdx, xDomainEnd]}
-            tick={{ fill: "var(--text-quaternary)", fontSize: 10 }}
+            tick={{ fill: "var(--text-quaternary)", fontSize: 11 }}
             tickLine={false}
             axisLine={{ stroke: "var(--border-subtle)" }}
             ticks={xTicks}
@@ -111,7 +111,7 @@ export default function ConfidenceChart({ points }: ConfidenceChartProps) {
             domain={[0, 1]}
             ticks={[0, 0.5, 1]}
             tickFormatter={(value: number) => `${Math.round(value * 100)}%`}
-            tick={{ fill: "var(--text-quaternary)", fontSize: 10 }}
+            tick={{ fill: "var(--text-quaternary)", fontSize: 11 }}
             tickLine={false}
             axisLine={false}
             width={40}

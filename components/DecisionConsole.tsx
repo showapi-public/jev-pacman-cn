@@ -37,13 +37,15 @@ type ConsoleTab = "HISTORY" | "CONFIDENCE" | "METRICS" | "STATE";
 /**
  * Above this viewport height the chart fits permanently.
  *
- * Derived from the column's own arithmetic rather than picked by eye. Measured,
- * the column is `viewport - 52px header - 32px padding` tall, and the panel
- * header (36), the decision card (~290, after compact dl layout) and its rule (1) take ~327 of that; the
- * chart register takes another 173. What is left is the tab strip's 32px trigger
- * row plus the history list. Three rows is the least that is still worth reading,
- * which needs 120px of list — so the chart keeps its own place from 780px of
- * viewport up, and folds into the strip below that.
+ * Derived from the column's own arithmetic rather than picked by eye. Measured
+ * at 813px of viewport, the column is `viewport - 52px header - 32px padding`
+ * tall, and the fixed registers inside it take, from the top: the panel header
+ * (36), the decision card with its rule (289), the chart register (178) and the
+ * tab strip (36). What is left is the history list — 190px there, i.e. 5.5 rows
+ * at the measured 34.4px row. Three rows (103px) is the least still worth
+ * reading, which the inline chart drops below at 726px of viewport; the
+ * threshold sits at 780 to keep a visible margin of roughly a row and a half
+ * over that floor instead of landing on it exactly.
  *
  * The threshold is in viewport pixels, not screen pixels: a 1440x900 display
  * gives Chrome about 813px of viewport, so calibrating against 900 would have

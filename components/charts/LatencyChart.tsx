@@ -48,13 +48,13 @@ export default function LatencyChart({ buckets }: { buckets: readonly LatencyBuc
           <CartesianGrid vertical={false} stroke="var(--divider)" />
           <XAxis
             dataKey="label"
-            tick={{ fill: "var(--text-quaternary)", fontSize: 10 }}
+            tick={{ fill: "var(--text-quaternary)", fontSize: 11 }}
             tickLine={false}
             axisLine={{ stroke: "var(--border-subtle)" }}
           />
           <YAxis
             allowDecimals={false}
-            tick={{ fill: "var(--text-quaternary)", fontSize: 10 }}
+            tick={{ fill: "var(--text-quaternary)", fontSize: 11 }}
             tickLine={false}
             axisLine={false}
             width={34}

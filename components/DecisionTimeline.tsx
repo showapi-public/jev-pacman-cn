@@ -37,9 +37,16 @@ const GLYPH: Record<Direction, typeof ArrowUp> = {
  * scrollable overflow and giving the single-screen shell a phantom page
  * scrollbar. Making the row a containing block keeps the span inside the row,
  * where the scroller clips it.
+ *
+ * The 状态 column is sized by its content, not by a pixel figure. A pill is a
+ * box around a word, so a fixed column silently drifts out of step the moment
+ * the type scale moves: at 12px the three-character pills measure 66px, which
+ * in a 58px track pushed them 8px left, through the gap and onto the latency
+ * digits. `auto` lets the pill size the column and gives the slack back to the
+ * share bar, which is the one column here that has room to spare.
  */
 const ROW_GRID =
-  "relative grid grid-cols-[30px_14px_minmax(20px,1fr)_52px_58px] items-center gap-2";
+  "relative grid grid-cols-[30px_14px_minmax(20px,1fr)_52px_auto] items-center gap-2";
 
 export interface DecisionTimelineProps {
   records: readonly DecisionTelemetry[];
