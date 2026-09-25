@@ -152,6 +152,8 @@ export function GameCanvas<S extends GameState>(props: GameCanvasProps<S>) {
         timeMs: now,
         neon,
         thinking: state.status === "PLAYING" && controller.isRequesting(),
+        // 与 `createFxSink` 读同一个判据：粒子和画布上的装饰一起停，不会各停各的。
+        reducedMotion: reduced,
         fx: juice,
         // The overlay's contents are the game's own; the controller has no
         // business knowing what a junction is.

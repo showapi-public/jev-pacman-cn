@@ -8,8 +8,8 @@
 
 import type { PacmanState, GhostState, TilePosition } from "./types";
 import { FRIGHTENED_FLASH_MS, directionVector, tileCenter } from "./types";
+import { applyShake, drawFlashOverlay, drawJuiceOverlay, drawThinkingRing } from "../draw";
 import type { JuiceState } from "../juice";
-import { shakeOffset } from "../juice";
 
 export const TILE = 20;
 
@@ -36,6 +36,8 @@ const COLORS = {
   frightenedFlash: "#f2f5ff",
   debug: "#7cf5c8",
   junction: "#ffd23f",
+  /** 同一支琥珀色，降到 0.9：脉动环是提示，不该抢过路口本身。 */
+  junctionGlow: "rgba(255, 210, 63, 0.9)",
   candidate: "#8b93a8",
 };
 
@@ -100,31 +102,22 @@ export function drawGame(context: CanvasRenderingContext2D, state: PacmanState, 
   context.fillRect(0, 0, width, height);
 
   context.save();
-  if (juice && juice.trauma > 0) {
-    const offset = shakeOffset(juice, time);
-    context.translate(offset.x, offset.y);
-    context.scale(1.02, 1.02);
-    context.translate(-width * 0.01, -height * 0.01);
-  }
+  if (juice) applyShake(context, juice, time, width, height);
 
   drawWalls(context, state, time, neon);
   drawPellets(context, state, time, neon);
   drawGhosts(context, state, time);
   drawPacman(context, state, time);
-  if (juice) drawJuice(context, juice);
-  if (options.thinking) drawThinkingRing(context, options.debugInfo?.junction ?? null, time);
+  // 果汁层与脉动环在震动里（它们是场景的一部分）；闪屏在外面，因为闪的是「屏幕」。
+  if (juice) drawJuiceOverlay(context, juice, TILE);
+  if (options.thinking) {
+    drawThinkingRing(context, options.debugInfo?.junction ?? null, TILE, time, COLORS.junctionGlow);
+  }
   if (options.debug) drawDebugGrid(context, state, options);
 
   context.restore();
 
-  // The flash sits above everything and never shakes.
-  if (juice && juice.flashMs > 0 && juice.flashMaxMs > 0) {
-    context.save();
-    context.globalAlpha = (juice.flashMs / juice.flashMaxMs) * 0.26;
-    context.fillStyle = juice.flashColor;
-    context.fillRect(0, 0, width, height);
-    context.restore();
-  }
+  if (juice) drawFlashOverlay(context, juice, width, height);
 }
 
 function drawWalls(context: CanvasRenderingContext2D, state: PacmanState, time: number, neon: boolean): void {
@@ -327,62 +320,6 @@ function drawGhostBody(
     context.arc(eyeX + vector.x * radius * 0.13, eyeY + vector.y * radius * 0.13, radius * 0.13, 0, Math.PI * 2);
     context.fill();
   }
-}
-
-/* Canvas text is drawn with the mono face, but the popups also carry Chinese
-   ("+10 第 3 关"), so the stack has to name a Simplified Chinese family too. */
-const CANVAS_FONT_STACK =
-  '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", monospace';
-
-/** Particles and score popups. Purely decorative: the HUD carries the numbers. */
-function drawJuice(context: CanvasRenderingContext2D, juice: JuiceState): void {
-  context.save();
-  context.shadowBlur = 0;
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-
-  for (const particle of juice.particles) {
-    const alpha = Math.max(0, Math.min(1, particle.life / particle.maxLife));
-    const size = particle.size * (0.6 + alpha * 0.6);
-    context.globalAlpha = particle.kind === "confetti" ? Math.min(1, alpha * 1.5) : alpha;
-    context.fillStyle = particle.color;
-    context.fillRect(particle.x * TILE - size / 2, particle.y * TILE - size / 2, size, size * 1.6);
-  }
-
-  for (const popup of juice.popups) {
-    const alpha = Math.max(0, Math.min(1, popup.life / popup.maxLife));
-    const size = Math.round(TILE * 0.66 * (1 + (1 - alpha) * 0.22));
-    context.globalAlpha = alpha;
-    context.font = `600 ${size}px ${CANVAS_FONT_STACK}`;
-    context.lineWidth = 3;
-    context.strokeStyle = "rgba(5, 6, 11, 0.85)";
-    context.strokeText(popup.text, popup.x * TILE, popup.y * TILE);
-    context.fillStyle = popup.color;
-    context.fillText(popup.text, popup.x * TILE, popup.y * TILE);
-  }
-
-  context.restore();
-}
-
-/** The junction Jev is being asked about: a ring that pulses while the answer is on its way. */
-function drawThinkingRing(context: CanvasRenderingContext2D, junction: TilePosition | null, time: number): void {
-  if (!junction) return;
-  const center = tileCenter(junction);
-  const phase = (time % 900) / 900;
-  context.save();
-  context.shadowBlur = 0;
-  context.strokeStyle = "rgba(255, 210, 63, 0.9)";
-  context.lineWidth = 1.6;
-  context.globalAlpha = 1 - phase;
-  context.beginPath();
-  context.arc(center.x * TILE, center.y * TILE, TILE * (0.45 + phase * 0.5), 0, Math.PI * 2);
-  context.stroke();
-  context.globalAlpha = 0.75;
-  context.fillStyle = "rgba(255, 210, 63, 0.95)";
-  context.beginPath();
-  context.arc(center.x * TILE, center.y * TILE, 2.4, 0, Math.PI * 2);
-  context.fill();
-  context.restore();
 }
 
 function drawDebugGrid(context: CanvasRenderingContext2D, state: PacmanState, options: RenderOptions): void {

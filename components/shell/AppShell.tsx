@@ -24,6 +24,13 @@ const DEFAULT_SUBTITLE = "TypeSafe System One · 输入结构化状态，输出�
 export interface AppShellProps {
   /** 本局自身色，CSS 变量引用（如 `"var(--pacman)"`），挂到外壳的 `--self`。 */
   selfColor: string;
+  /**
+   * 本局标记的形状（CSS `clip-path`），取自该游戏的 `GameMeta.glyph`。
+   *
+   * 形状由游戏自己给：标记原来写死成一个缺口圆 —— 那是吃豆人，接第二款游戏时才露出来。
+   * 缺省不裁剪，就是一个圆点。
+   */
+  glyph?: string;
   /** 头部 H1。 */
   title: ReactNode;
   /** H1 下面那行小字。缺省是这台机器的一句话说明。 */
@@ -34,7 +41,7 @@ export interface AppShellProps {
   children: ReactNode;
 }
 
-export function AppShell({ selfColor, title, subtitle, status, children }: AppShellProps) {
+export function AppShell({ selfColor, glyph, title, subtitle, status, children }: AppShellProps) {
   return (
     <div className="app-shell" style={{ "--self": selfColor } as CSSProperties}>
       <a className="skip-link" href="#stage">
@@ -44,10 +51,11 @@ export function AppShell({ selfColor, title, subtitle, status, children }: AppSh
       <TooltipProvider delayDuration={180} skipDelayDuration={400}>
         <header className="flex h-[52px] shrink-0 items-center justify-between gap-4 border-b border-subtle px-5">
           <div className="flex min-w-0 items-center gap-3">
-            {/* 这台机器的主角，用本局自身色 —— 换游戏只换 `--self`。 */}
+            {/* 这台机器的主角，用本局自身色 —— 换游戏只换 `--self` 与这枚形状。 */}
             <span
               aria-hidden="true"
-              className="size-[22px] shrink-0 rounded-full bg-self [clip-path:polygon(100%_24%,52%_50%,100%_76%,100%_100%,0_100%,0_0,100%_0)]"
+              className="size-[22px] shrink-0 rounded-full bg-self"
+              style={glyph ? { clipPath: glyph } : undefined}
             />
             <div className="flex min-w-0 flex-col">
               <h1 className="anim-flicker m-0 text-title font-[590] tracking-[-0.011em] text-fg">{title}</h1>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { GAME_PAGE_IDS } from "@/components/games/page-ids";
 import { GAME_META, getGameMeta } from "@/lib/games/registry";
 import { PLAY_MODES } from "@/lib/ui";
 
@@ -61,5 +62,31 @@ describe("游戏注册表", () => {
       expect(getGameMeta(meta.id)).toBe(meta);
     }
     expect(getGameMeta("no-such-game")).toBeUndefined();
+  });
+});
+
+/**
+ * 两张表必须**逐条对齐**。
+ *
+ * 它们分开是有理由的：`GAME_META` 只有元数据、无泛型，所以导航页与路由表能直接 import 它，
+ * 不必因此把引擎拖进包里；页面表必须知道泛型，所以它住在组件侧。代价是「新增一个游戏」
+ * 要登记两次 —— 这条测试就是把那两次登记绑在一起的那个结：漏了 A 表，路由会 404；
+ * 漏了 B 表，路由会渲染出一个空白壳。
+ *
+ * 断言的是 `GAME_PAGE_IDS` 而**不是** `GAME_PAGES` 本身：后者会拖进整棵页面组件树，
+ * 在这个无 DOM 的 node 环境里会把 worker 直接打挂（实测 `SIGTERM`）。清单与那份组件表
+ * 之间由编译器绑着（`Record<GamePageId, ComponentType>`），所以这里比 id 就够了。
+ */
+describe("游戏页面表", () => {
+  it("每个注册的 id 都有实现，也没有多出来的实现", () => {
+    // 断言「相等」而不是「包含」：多出来的那条实现不可达（`generateStaticParams` 只列
+    // `GAME_META`），留着只会让人以为它上线了。
+    expect([...GAME_PAGE_IDS].sort()).toEqual(GAME_META.map((meta) => meta.id).sort());
+  });
+
+  it("清单本身不重复", () => {
+    // 空转与重复都要挡住：重复的话上面的排序比较仍可能通过，但键只实现了一个。
+    expect(new Set(GAME_PAGE_IDS).size).toBe(GAME_PAGE_IDS.length);
+    expect(GAME_PAGE_IDS.length).toBeGreaterThan(0);
   });
 });

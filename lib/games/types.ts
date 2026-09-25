@@ -83,6 +83,14 @@ export interface GameMeta {
   /** 本局自身色的 CSS 变量引用，挂到外壳的 `--self`，例如 `"var(--pacman)"`。见设计规范 §4.2。 */
   readonly selfColor: string;
   /**
+   * 头部那枚标记的形状，一个 CSS `clip-path` 值（例如吃豆人的缺口圆）。
+   *
+   * 标记本身（22px、`bg-self`）是机台的一部分，**形状不是** —— 它原来是写死在
+   * `AppShell` 里的一个缺口圆，接第二款游戏时才看出来那是吃豆人的剪影。缺省 = 不裁剪，
+   * 也就是一个圆点。
+   */
+  readonly glyph?: string;
+  /**
    * 文案里指代「玩家在操控的那个东西」的短名词：吃豆人 / 蛇。
    *
    * 右栏是共用的，所以它不能自己写「吃豆人」三个字；`name` 又太长（导航卡与标题用），
@@ -240,6 +248,14 @@ export interface PaintView {
   readonly neon: boolean;
   /** 有一次提问在途：把决策点脉动起来。 */
   readonly thinking: boolean;
+  /**
+   * 这台机器要求少动（`prefers-reduced-motion`）。
+   *
+   * 由共用循环判一次再传进来，而不是让渲染器自己读 `window.matchMedia`：渲染器是
+   * 「纯画布」，它连 `window` 都不该知道。果汁层那侧早就在 `createFxSink` 里统一兜掉了，
+   * 这是它的画布孪生 —— 两边读同一个判据，才不会出现「粒子关了、装饰还在动」。
+   */
+  readonly reducedMotion: boolean;
   /** 玩法之外的画面状态（粒子、飘字、震动）。由该游戏自己的表现层产出，框架只透传。 */
   readonly fx: unknown;
   /** `GameDriver.debug()` 的产物；非调试模式下为 null。 */

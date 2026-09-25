@@ -1,14 +1,11 @@
 "use client";
 
 /**
- * Pac-Man's run: the machine (`AppShell`) plus the three things that are only
- * true of this game — the board, its six registers, and its help text.
+ * 蛇这一局：机台（`AppShell`）加上只对它成立的三样东西 —— 盘面、六个读数、帮助文案。
  *
- * It owns nothing itself. The run comes from `useGameSession`; the stage from the
- * shared `GameCanvas`; the frame from `AppShell`; the control bar from
- * `ControlBar`, which takes this game's copy out of its metadata. What is left
- * here is the assembly, and `components/games/pages.tsx` is the only place that
- * knows this component exists.
+ * 它自己什么都不拥有。这一局来自 `useGameSession`，舞台来自共用的 `GameCanvas`，
+ * 外框来自 `AppShell`，控制条来自 `ControlBar`（它从元数据里取这款游戏的文案）。
+ * 留在这里的就是装配，而 `components/games/pages.tsx` 是唯一知道这个组件存在的地方。
  */
 
 import { ArrowCounterClockwise, Info, Pause, Play } from "@phosphor-icons/react";
@@ -16,20 +13,20 @@ import { ArrowCounterClockwise, Info, Pause, Play } from "@phosphor-icons/react"
 import { DecisionConsole } from "@/components/console/DecisionConsole";
 import type { ConsoleInput } from "@/components/console/input";
 import { GameCanvas } from "@/components/games/GameCanvas";
-import { PacmanHelp } from "@/components/games/pacman/PacmanHelp";
-import { PacmanMeters } from "@/components/games/pacman/PacmanMeters";
+import { SnakeHelp } from "@/components/games/snake/SnakeHelp";
+import { SnakeMeters } from "@/components/games/snake/SnakeMeters";
 import { AppShell } from "@/components/shell/AppShell";
 import { ControlBar } from "@/components/shell/ControlBar";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Panel, PanelActions, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { computeMetrics } from "@/lib/agent/telemetry";
-import { PACMAN } from "@/lib/games/pacman/index";
+import { SNAKE } from "@/lib/games/snake/index";
 import { GAME_STATUS_TONE, MODE_LABELS, STATUS_LABELS, formatMs } from "@/lib/ui";
 import { useGameSession } from "@/lib/use-game-session";
 
-export function PacmanPage() {
-  const session = useGameSession(PACMAN);
+export function SnakePage() {
+  const session = useGameSession(SNAKE);
   const { state, controller } = session;
 
   const running = state.status === "PLAYING";
@@ -37,23 +34,23 @@ export function PacmanPage() {
   const PlayIcon = running ? Pause : Play;
 
   /*
-   * The right column's whole input. Nothing in it is Pac-Man-shaped — the four
-   * things that are come from the game's own meta and vocab, which is exactly
-   * the seam that lets a second game reuse every panel below.
+   * 右栏的全部输入。里面没有一件是蛇的形状 —— 那四件（动作词表、主体名词、地点名词、
+   * 预算）都来自这款游戏自己的 meta / vocab，这正是下面每一个面板都能被第二款游戏
+   * 原样复用的那道缝。
    */
   const consoleInput: ConsoleInput = {
     status: state.status,
     metrics: computeMetrics(controller.telemetry),
     records: controller.telemetry,
     controller,
-    // 预算由游戏声明，所以从游戏定义上取 —— 与右栏、控制条读的是同一个数。
-    budgetMs: PACMAN.agent.budgetMs,
+    // 预算是游戏声明的，不是「吃豆人的 500 ms」——蛇声明了同一个数，跨游戏延迟才可直接比较。
+    budgetMs: SNAKE.agent.budgetMs,
     speed: session.speed,
     playTimeMs: state.playTimeMs,
     events: session.events,
-    vocab: PACMAN.vocab,
-    actor: PACMAN.meta.actor,
-    place: PACMAN.meta.place,
+    vocab: SNAKE.vocab,
+    actor: SNAKE.meta.actor,
+    place: SNAKE.meta.place,
     steerable: session.mode === "MANUAL",
     debug: session.debug,
     onSteer: session.steer,
@@ -100,34 +97,34 @@ export function PacmanPage() {
 
   return (
     <AppShell
-      selfColor={PACMAN.meta.selfColor}
-      glyph={PACMAN.meta.glyph}
-      title={`Jev 玩${PACMAN.meta.name}`}
+      selfColor={SNAKE.meta.selfColor}
+      glyph={SNAKE.meta.glyph}
+      title={`Jev 玩${SNAKE.meta.name}`}
       status={status}
     >
       <div className="flex min-h-0 min-w-0 flex-col gap-4">
-        <Panel id="stage" aria-labelledby="maze-heading" className="min-h-0 flex-1">
+        <Panel id="stage" aria-labelledby="board-heading" className="min-h-0 flex-1">
           <PanelHeader>
-            <PanelTitle id="maze-heading">迷宫</PanelTitle>
+            <PanelTitle id="board-heading">盘面</PanelTitle>
             <PanelActions>
               <Chip tone={session.mode !== "MANUAL" && running ? "live" : "neutral"} dot>
                 {session.mode === "MANUAL" ? "方向键驾驶" : `玩家 ${MODE_LABELS[session.mode]}`}
               </Chip>
-              <PacmanHelp>
+              <SnakeHelp>
                 <Button
                   variant="ghost"
                   size="icon"
                   aria-label="玩法与颜色说明"
-                  title="决策是怎么产生的，以及迷宫里的颜色各自代表什么"
+                  title="决策是怎么产生的，以及盘面上的颜色各自代表什么"
                 >
                   <Info aria-hidden="true" weight="bold" className="size-3.5" />
                 </Button>
-              </PacmanHelp>
+              </SnakeHelp>
             </PanelActions>
           </PanelHeader>
 
           <GameCanvas
-            game={PACMAN}
+            game={SNAKE}
             stateRef={session.stateRef}
             controllerRef={session.controllerRef}
             mode={session.mode}
@@ -137,19 +134,19 @@ export function PacmanPage() {
             crt={session.crtOn}
             sound={session.sound}
             attract={state.status === "READY"}
-            attractText="投入硬币 —— 按开始"
-            ariaLabel="吃豆人迷宫。实时得分、豆子与幽灵状态见迷宫下方的参数栏。"
+            attractText="按开始 —— 第一步要有人给方向"
+            ariaLabel="贪吃蛇盘面。实时长度、食物与已走步数见盘面下方的参数栏。"
             onSnapshot={session.publish}
             onEvents={session.onEvents}
           />
 
-          <PacmanMeters state={state} controller={controller} />
+          <SnakeMeters state={state} />
         </Panel>
 
         <Panel aria-label="操作面板">
           <ControlBar
-            meta={PACMAN.meta}
-            budgetMs={PACMAN.agent.budgetMs}
+            meta={SNAKE.meta}
+            budgetMs={SNAKE.agent.budgetMs}
             mode={session.mode}
             speed={session.speed}
             seed={session.seed}

@@ -492,7 +492,60 @@ RIGHT 会靠这半分赢过排在前面的 UP。这条已写进用例标题，�
   （长度（主读数）/ 吃到食物 / 已走步数 / 存活时长 / 剩余空格 / 历史最长）。
 - 注册进 `GAME_META` 与 `GAME_PAGES`（**新增游戏 = 加一个目录 + 两条注册**，不新建页面文件）。
 
-**验收**：`tsc` + `vitest` 全绿；`tests/games-registry.test.ts` 扩展到「每个 id 在 `GAME_PAGES` 里都有实现」。
+**验收**：`tsc` + `vitest` 全绿；`tests/games-registry.test.ts` 扩展到「每个 id 都有页面实现」
+（实际比的是 `GAME_PAGE_IDS` 而不是 `GAME_PAGES`，原因见下面的执行结果）。
+
+**执行结果（2026-09-25，已完成）**
+
+新增：`lib/games/snake/{meta,render,copy,index}.ts`、`lib/games/draw.ts`、
+`components/games/snake/{SnakePage,SnakeMeters,SnakeHelp}.tsx` +
+`components/games/snake/use-snake-high-score.ts`、`components/games/page-ids.ts`、
+`tests/snake-definition.test.ts`（10 项）。
+
+四处计划没写、执行时必须自己定的：
+
+1. **`lib/games/draw.ts`：把果汁层里不含游戏知识的那部分抽出来共用。** 震动、粒子与飘字、
+   闪屏、决策点的脉动环、canvas 字体栈 —— 它们原来长在吃豆人的 `render.ts` 里，接第二款游戏时
+   才发现一行都不含吃豆人知识，留着就会被抄第二遍。这一层唯一的游戏参数是 `unit`（一格多大：
+   吃豆人 `TILE = 20`、蛇 `CELL = 28`）。**吃豆人的画面零变化** —— 同一套算术，只是换了个文件、
+   把 `TILE` 变成了参数；`NaN` 之外的唯一风险是传错 `unit`，所以两边都用各自的常量传，不写字面量。
+2. **契约加两个字段**，都是「接第二款游戏才露出来的洞」：
+   - `PaintView.reducedMotion`：食物脉动要能停下来，而渲染器是「纯画布」、不该自己读
+     `window.matchMedia`。由共用循环判一次传进来 —— **与 `createFxSink` 读同一个判据**，
+     否则会出现「粒子关了、装饰还在动」。
+   - `GameMeta.glyph`：头部那枚 22px 标记的形状。它原来写死在 `AppShell` 里，而那个
+     `clip-path` 是**吃豆人的剪影** —— 共用外壳不该知道世界上有这种形状。缺省 = 不裁剪（圆点）。
+3. **蛇不铺底色**：盘面就是画布所在的那口 `.bg-well`，只画一圈边框。铺不透明底会把机台那层
+   暗底盖掉，24×24 的棋盘看起来像贴上去的一张纸。
+4. **历史最长存 `jev:snake:high-score`，只在 UI 层**（`use-snake-high-score.ts`）。引擎是纯的，
+   连 `window` 都不该知道；写在一个 `useEffect` 里、每长一节刷一次，所以看到的是「这一局正在
+   刷新记录」，而不是局终才跳一下。
+
+一处计划与设计文档的冲突：计划 §5 P3-3 列了 `SnakeCanvas.tsx`，但设计文档 §4 的偏差 1 已经
+说明「固定步长循环抽成共用组件 `GameCanvas`，**蛇因此不需要 `SnakeCanvas.tsx`**」。按设计文档办，
+没有这个文件 —— 蛇页只组装共用的 `GameCanvas`。
+
+三处踩到的真问题：
+
+1. **`games-registry.test.ts` 不能 import `components/games/pages.tsx`。** 它会拖进整棵页面组件树，
+   光 `@phosphor-icons/react` 那个 barrel 就有 **3024 个模块**，在这个无 DOM 的 node 环境里
+   vitest worker 直接被 `SIGTERM`（单跑该文件也复现，不是并发挤爆的）。改法：把「哪些 id 有页面」
+   单独放进 `components/games/page-ids.ts`，测试只比 `GAME_PAGE_IDS`；**清单与组件表之间由编译器
+   绑着** —— `pages.tsx` 的键写成 `Record<GamePageId, ComponentType>`，少一条是编译错误、
+   多一条是多余属性错误。于是清单只管「有哪些」，实现由编译器看着。
+2. **`getGamePage(id)` 原来直接 `GAME_PAGES[id]`，会沿原型链取到 `toString` / `constructor`。**
+   那些是函数，于是 `/toString` 会被当成一个页面渲染出来，而不是 404（只有一个乱敲地址段的人会撞上）。
+   改成 `Object.hasOwn` 先判自己的键。
+3. **一次我自己造的编辑事故**：往 `render.ts` 插 `EFFECT_COLORS` 时，`old_string` 写成了
+   「函数签名 + 空行」而 `new_string` 只有签名 —— 等于把那个函数的函数体删掉了（工具照样回报成功）。
+   教训：**插入式编辑要先确认 `new_string` 是 `old_string` 的超集**，收尾用 `tsc` + 读回那段复核。
+
+**验证**：`tsc` 0 错；全量 **241/241**（21 文件）；SSR 冒烟（`fetch`，不走沙箱代理）——
+`/snake` 200 且六个标记齐（标题、画布 aria-label、等待文案、两个读数标签、决策形态），
+`/pacman` 200 未受影响，未知路由 404，头部标记与 `--self` 随游戏切换（蛇是 `inset()` 圆角方块、
+吃豆人仍是缺口圆）。
+
+**留给 P3-4 的**：浏览器实测（画布不被裁、只有一层滚动条、决策逐条进历史）、导航首页与游戏切换器。
 
 ### P3-4 Phase 3 收口验证（蛇 + 导航首页）
 

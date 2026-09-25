@@ -97,6 +97,13 @@
   --color-clyde: var(--ghost-clyde);
   --color-frightened: var(--ghost-frightened);
 
+  /* game data — the snake's three. Same rule as the Pac-Man block above: these are
+     data colours, not interface accents; the interface still has exactly one
+     accent (indigo). */
+  --color-snake-head: var(--snake-head);
+  --color-snake-body: var(--snake-body);
+  --color-snake-food: var(--snake-food);
+
   /* per-game self colour — whatever `--self` is set to on the shell. It is the
      colour of *this game's* hero, so no component ever names a game colour. */
   --color-self: var(--self);
@@ -180,6 +187,15 @@
   --ghost-inky: #57dcff;
   --ghost-clyde: #ffb15c;
   --ghost-frightened: #7d5cff;
+
+  /* The snake. `--snake-head` is also its `--self` (design system §4.2), so the
+     run's score readout and its hero on the board are the same green. The body is
+     a darker green so a single square never reads as the head, and the food is
+     orange: it has to be visible against a body that is about to cover it.
+     These literals are mirrored in lib/games/snake/render.ts — change both. */
+  --snake-head: #4ade80;
+  --snake-body: #22a35c;
+  --snake-food: #ff9f43;
 
   /* Every game page's shell sets `--self` from its own meta (design system §4.2),
      so this default never shows up in the app — it exists so that a caller who

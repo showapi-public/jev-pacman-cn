@@ -13,6 +13,11 @@ export const PACMAN_META: GameMeta = {
   tagline: "吃光豆子，躲开幽灵",
   decisionShape: "每个路口选一个方向",
   selfColor: "var(--pacman)",
+  /*
+   * 头部那枚标记：缺口圆 —— 原来它是写死在外壳里的，接第二款游戏时才露出来「那是吃豆人」。
+   * 形状跟着游戏走，外壳只负责画一个 `bg-self` 的方块并裁它。
+   */
+  glyph: "polygon(100% 24%, 52% 50%, 100% 76%, 100% 100%, 0 100%, 0 0, 100% 0)",
   actor: "吃豆人",
   place: "路口",
   /*

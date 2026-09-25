@@ -1,6 +1,8 @@
 import type { ComponentType } from "react";
 
 import { PacmanPage } from "./pacman/PacmanPage";
+import type { GamePageId } from "./page-ids";
+import { SnakePage } from "./snake/SnakePage";
 
 /**
  * ★ 引擎与 UI 缝合处 —— 全项目唯一把一款游戏的引擎接到页面上的地方。
@@ -17,11 +19,22 @@ import { PacmanPage } from "./pacman/PacmanPage";
  * 另一份表在 `lib/games/registry.ts`（只有元数据、无组件）—— 导航页、头部切换器与
  * `generateStaticParams` 只要元数据，不该因此把引擎拖进包里。于是
  * 「新增一个游戏 = 加一个目录 + 在两张表里各登记一条」。
+ *
+ * 键写成 `Record<GamePageId, …>`：清单在 `page-ids.ts`，两边由编译器绑着，
+ * 少一条是编译错误、多一条是多余属性错误。**注意别把这份表 import 进 node 测试** ——
+ * 它会拖进整棵组件树（见 `page-ids.ts` 的说明）。
  */
-export const GAME_PAGES: Readonly<Record<string, ComponentType>> = {
+export const GAME_PAGES: Readonly<Record<GamePageId, ComponentType>> = {
   pacman: PacmanPage,
+  snake: SnakePage,
 };
 
 export function getGamePage(id: string): ComponentType | undefined {
-  return GAME_PAGES[id];
+  /*
+   * `Object.hasOwn` 而不是直接 `GAME_PAGES[id]`：后者会沿原型链取到 `toString`、
+   * `constructor` 这些函数，于是 `/toString` 会被当成一个页面渲染出来而不是 404。
+   * 只有乱敲地址段才会撞上，但那时用户看到的应该是一个 404，而不是一段莫名其妙的内容。
+   */
+  if (!Object.hasOwn(GAME_PAGES, id)) return undefined;
+  return GAME_PAGES[id as GamePageId];
 }

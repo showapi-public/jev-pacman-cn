@@ -9,10 +9,11 @@
  */
 
 import { PACMAN_META } from "./pacman/meta";
+import { SNAKE_META } from "./snake/meta";
 import type { GameMeta } from "./types";
 
 /** 导航页与路由表的顺序就是这里的顺序。 */
-export const GAME_META: readonly GameMeta[] = [PACMAN_META];
+export const GAME_META: readonly GameMeta[] = [PACMAN_META, SNAKE_META];
 
 export function getGameMeta(id: string): GameMeta | undefined {
   return GAME_META.find((meta) => meta.id === id);
