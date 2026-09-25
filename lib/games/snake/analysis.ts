@@ -121,8 +121,12 @@ export function simulatedBody(state: SnakeState, direction: Direction): SnakeCel
  *
  * 「越大越安全」是蛇的第一常识：真正杀死蛇的从来不是眼前那一格，而是把自己关进小房间。
  * 这里必须用 flood fill 而不是几何距离 —— 身体围成的圈只有搜索看得见。
+ *
+ * 致命的那一步给 0：死在墙上就没有「一步之后可达什么」可言。不特判的话，撞墙会算出
+ * 一个新头在盘外、却仍能绕回盘内的可达数 —— 一个又大又假的数字，模型会当真的。
  */
 export function freeCellsAfter(state: SnakeState, direction: Direction): number {
+  if (isLethal(state, direction)) return 0;
   const after = simulatedBody(state, direction);
   return reachableCount(state.board, after[0], new Set(after.map(cellKey)));
 }
@@ -130,10 +134,11 @@ export function freeCellsAfter(state: SnakeState, direction: Direction): number 
 /**
  * 走到下一格之后，从那里还有几个非致命方向（0 = 进了死胡同）。
  *
- * 与 `freeCellsAfter` 是两种不同的坏消息：可达空格少但路还宽（一个大房间的角落）不算急，
- * 自由度 0 才是立刻没得选。事实表两行都写。
+ * 与 `freeCellsAfter` 是两种不同的坏消息：可达空格少但路还宽（大房间的角落）不算急，
+ * 自由度 0 才是立刻没得选。事实表两行都写。致命的那一步同样给 0。
  */
 export function freedomAfter(state: SnakeState, direction: Direction): number {
+  if (isLethal(state, direction)) return 0;
   const probe: SnakeState = {
     ...state,
     body: simulatedBody(state, direction),
@@ -180,4 +185,22 @@ export function distanceToFood(state: SnakeState, from: SnakeCell): number | nul
   }
 
   return null;
+}
+
+/**
+ * 走到 `direction` 之后，从**新头**出发到食物还有几格。死亡的那一步给 `null`。
+ *
+ * 与 `distanceToFood(state, headCell(state))` 的区别不只是换了起点：这里用**走完之后**的身体
+ * 当障碍 —— 尾巴会让位、头也换了格。用现在的身体去算会多算一格尾巴的距离，
+ * 而事实表里那一格之差正好是「值不值得拐」的判断依据。
+ */
+export function foodDistanceAfter(state: SnakeState, direction: Direction): number | null {
+  if (isLethal(state, direction)) return null;
+  const probe: SnakeState = {
+    ...state,
+    body: simulatedBody(state, direction),
+    heading: direction,
+    growth: Math.max(0, state.growth - 1),
+  };
+  return distanceToFood(probe, probe.body[0]);
 }

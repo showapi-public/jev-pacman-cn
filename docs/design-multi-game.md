@@ -148,7 +148,14 @@ export interface DecisionPoint {
 
 ```ts
 export interface GameDriver<S extends GameState> {
-  /** 此刻应该瞄准的决策点；null = 不需要决策（走道 / 唯一活路 / 未开局）。 */
+  /**
+   * 此刻应该瞄准的决策点；null = 不需要决策（走道 / 唯一活路就是直行 / 未开局）。
+   *
+   * 「唯一活路」必须读成**唯一活路恰好是当前朝向**：那时不问确实没有代价，引擎本来就会沿
+   * `heading` 走。若唯一活路是一次**转向**，照样要问 —— 蛇不会自己转弯，不问就没人给方向，
+   * 它会直着撞死；控制器在 `null` 时既不提问也不兜底，等于把一次必须落的决策吞掉。
+   * 三个方向全致命时同样要问（兜底第 4 条才有地方落地）。见 `plan-multi-game.md` §7 决策 ③。
+   */
   decision(state: S): DecisionPoint | null;
 
   /** 预取距离（游戏空间，格）。**不受速度倍率影响**，由此墙钟窗口 = `budgetMs / speed`，见 §8。 */
@@ -341,7 +348,10 @@ components/
    都由调用方传入），是共用层的东西。共用循环持有每局唯一的 `JuiceState`，经 `PaintView.fx`
    交给该游戏的渲染器。
 3. **契约补三个字段**（`GameDefinition`）：
-   - `fixedDtMs`：循环要知道步长（吃豆人 `1000/60`，蛇 `500`）；
+   - `fixedDtMs`：循环要知道步长。**两个游戏都是 `1000/60`** —— 蛇的 `500` 是**整格**步长
+     （`MOVE_MS`），不是循环步长，两者别混。约束是 `fixedDtMs ≤ commitWindow × MOVE_MS`
+     （蛇即 `0.05 × 500 = 25 ms`）；把 `fixedDtMs` 设成 500 会让 `arriving` 恒为真且
+     `distance` 恒为 1 > `commitWindow`，控制器**一次都不提问、也一次都不兜底**；
    - `describeEvent(event): string`：事件 → 面板事件流的一行人话。句子由游戏写，右栏拿到的
      是已说好的字符串，仍然零游戏知识（原来这段映射死在 `app/page.tsx` 里）；
    - `keyActions: Record<string, ActionId>`：手动模式的键位。于是游戏页里不再出现任何方向键
@@ -547,7 +557,7 @@ POST /api/decide
 | --- | --- |
 | 立刻致命 | 是 / 否（撞墙或咬到自己） |
 | 该方向可达空格数 | flood fill（越大越安全） |
-| 距食物（格） | BFS 距离，不可达 — |
+| 距食物（格） | BFS 距离；不可达写 `unreachable`（与吃豆人 `tilesAway` 同一口径，不给数字） |
 | 该方向是否沿当前朝向 | 是 / 否 |
 | 该方向的自由度 | 走到下一格后仍可走的动作数（0 = 死胡同） |
 | 蛇长 | 当前长度 |
@@ -576,8 +586,11 @@ POST /api/decide
 
 1. `snake-engine`：移动/增长 +5/撞墙/咬到自己/尾巴让位的合法性/胜利/同 seed 重放一致。
 2. `snake-agent`：每步一个决策点、`actions` 排除反向、观察形状、事实表 6 行齐、
-   `criteria` 与 `facts` 严格一致、兜底永不选立刻致命的动作（除非全致命）。
-3. `controller`（用假游戏驱动）：预取随速度缩放、`budgetMs` 无关速度、提交窗口、世代切换作废。
+   facts **拍平后每个动作都拿全 6 行**、兜底永不选立刻致命的动作（除非全致命）。
+   （`criteria` 不是契约字段，而是 `lib/jev/prompt.ts` 的 `buildCriteria(facts, actions)`
+   把 facts 拍平出来的那串文本 —— 用例要用它拍平，而不是照着拼法再抄一遍。）
+3. `controller`（用假游戏驱动）：**触发点是游戏声明的固定距离、与速度倍率无关**、`budgetMs` 无关速度、
+   提交窗口、世代切换作废。（原文写「预取随速度缩放」，那是 P2-3 的实现跑偏，已按 §8 的 B 方案推翻。）
 4. `models`：`JEV_MODELS` 解析（含空字段继承、空 key、非法条目）、脱敏后不含 key/baseURL。
 5. `route`：v2 载荷、动作校验、`modelId` 选择、mock 确定性。
 6. `registry`：`GAME_META` 的 id 唯一；每个 id 在 `GAME_PAGES` 里有实现（类型层已保证，测试兜底运行时）。
