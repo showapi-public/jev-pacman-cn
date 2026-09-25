@@ -7,15 +7,17 @@
  * it (engine, renderer, driver) stays independent of every other game.
  */
 
+import type { JuiceState } from "../juice";
 import type { ActionId, DecisionPoint, FxSink, GameDefinition } from "../types";
 import { PACMAN_DRIVER, heuristicChoice } from "./agent";
 import { analyzeCandidates } from "./analysis";
 import { occupiedTile } from "./collision";
+import { describePacmanEvent } from "./copy";
 import { createGame, pauseGame, resumeGame, startGame, stepGame } from "./engine";
-import type { JuiceState } from "./juice";
-import { PACMAN_META, PACMAN_VOCAB } from "./meta";
+import { PACMAN_META, PACMAN_KEY_ACTIONS, PACMAN_VOCAB } from "./meta";
 import type { RenderOptions } from "./render";
 import { EFFECT_COLORS, TILE, drawGame, ghostColor } from "./render";
+import { FIXED_DT_MS } from "./types";
 import type { Direction, PacmanEvent, PacmanState } from "./types";
 
 export { PACMAN_DRIVER, PACMAN_INSTRUCTIONS } from "./agent";
@@ -30,6 +32,9 @@ export const PACMAN: GameDefinition<PacmanState> = {
   start: startGame,
   pause: pauseGame,
   resume: resumeGame,
+
+  /** 60 Hz。共用循环按这个步长累加时间，所以它必须由游戏自己声明。 */
+  fixedDtMs: FIXED_DT_MS,
 
   step: (state, dtMs) => stepGame(state, dtMs),
 
@@ -98,6 +103,14 @@ export const PACMAN: GameDefinition<PacmanState> = {
       }
     }
   },
+
+  /** 事件流里的一行人话。事件的形状只有吃豆人自己知道，所以句子也由它写。 */
+  describeEvent(event: PacmanEvent): string {
+    return describePacmanEvent(event);
+  },
+
+  /** 手动模式的驾驶键：方向键 → 四向动作。 */
+  keyActions: PACMAN_KEY_ACTIONS,
 
   heuristic(state: PacmanState, actions: readonly ActionId[]): ActionId {
     const directions = actions as readonly Direction[];

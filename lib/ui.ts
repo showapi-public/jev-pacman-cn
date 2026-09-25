@@ -7,7 +7,7 @@
  * event sentences (`lib/games/<game>/copy.ts`).
  */
 
-import type { ControllerSnapshot, ControllerStatus } from "./agent/controller";
+import type { ControllerStatus } from "./agent/controller";
 import type { ActionId, TelemetryStatus } from "./agent/types";
 import type { GameStatus } from "./games/types";
 
@@ -32,26 +32,6 @@ export const STATUS_LABELS: Record<GameStatus, string> = {
 };
 
 export const SPEEDS = [0.5, 1, 2] as const;
-
-/**
- * The game page's own view type: the game's scoreboard plus the controller.
- *
- * Only the shell reads it. Everything the right column needs travels in
- * `ConsoleInput` (`components/console/input.ts`) — the two overlap in
- * `controller`, and nothing else.
- */
-export interface UiSnapshot {
-  status: GameStatus;
-  score: number;
-  lives: number;
-  level: number;
-  pelletsRemaining: number;
-  powerPelletsRemaining: number;
-  pelletsEaten: number;
-  ghostsEaten: number;
-  playTimeMs: number;
-  controller: ControllerSnapshot;
-}
 
 /**
  * Elapsed time as a running clock — the shape a stopwatch shows, for things

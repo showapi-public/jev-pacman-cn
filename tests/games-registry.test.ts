@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { GAME_META, getGameMeta } from "@/lib/games/registry";
+import { PLAY_MODES } from "@/lib/ui";
 
 /**
  * 注册表的不变式。导航首页、路由表与头部切换器都按这些假设写，
@@ -31,6 +32,19 @@ describe("游戏注册表", () => {
       for (const field of ["name", "tagline", "decisionShape", "actor", "place"] as const) {
         expect(meta[field], `${meta.id} 的 ${field}`).toBeTruthy();
         expect(meta[field].trim(), `${meta.id} 的 ${field}`).toBe(meta[field]);
+      }
+    }
+  });
+
+  it("四个玩家各自的说明都给了", () => {
+    // `modeHints` 的键在契约里只能写成 `string`（`GameMeta` 住在叶子模块，不能
+    // import `lib/ui` 的 `PlayMode`，否则成环）。这条测试就是那个类型放松的补偿：
+    // 它把「键必须覆盖 `PLAY_MODES` 的四个值」钉死在测试里，缺一个就红。
+    for (const meta of GAME_META) {
+      for (const mode of PLAY_MODES) {
+        const hint = meta.modeHints[mode];
+        expect(hint, `${meta.id} 缺 ${mode} 的说明`).toBeTruthy();
+        expect(hint.trim(), `${meta.id} 的 ${mode} 说明`).toBe(hint);
       }
     }
   });

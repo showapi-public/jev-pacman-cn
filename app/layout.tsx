@@ -12,10 +12,19 @@ const jetbrains = JetBrains_Mono({
   display: "swap",
 });
 
+/**
+ * The platform's metadata. The template is what makes each game's page its own
+ * document title: a game sets `Jev 玩吃豆人`, and the tab reads
+ * `Jev 玩吃豆人 · Jev 游戏台` — so the machine is named once, here, instead of
+ * being pasted into every page's title.
+ */
 export const metadata: Metadata = {
-  title: "Jev 玩吃豆人",
+  title: {
+    default: "Jev 游戏台",
+    template: "%s · Jev 游戏台",
+  },
   description:
-    "TypeSafe 的 Jev（System One 模型）依据结构化游戏状态实时游玩吃豆人：每个路口做一次选择，不看截图，无需微调。",
+    "TypeSafe 的 Jev（System One 模型）依据结构化游戏状态实时游玩：每个决策点做一次选择，不看截图，无需微调。",
 };
 
 export const viewport: Viewport = {

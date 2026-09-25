@@ -19,6 +19,14 @@ export interface SegmentedProps extends React.ComponentProps<"div"> {
   labelHidden?: boolean;
   /** `accent` paints the selected option in the chrome accent. */
   tone?: "neutral" | "accent";
+  /**
+   * One line under the options: what this axis is, or why it is unavailable.
+   *
+   * A `title` on each option explains the option; this explains the *group*, and
+   * it is visible rather than hover-only because a disabled group that says
+   * nothing leaves the reader guessing whether it is broken.
+   */
+  hint?: React.ReactNode;
 }
 
 export function Segmented({
@@ -26,6 +34,7 @@ export function Segmented({
   label,
   labelHidden = false,
   tone = "neutral",
+  hint,
   children,
   ...props
 }: SegmentedProps) {
@@ -50,6 +59,7 @@ export function Segmented({
             : child,
         )}
       </div>
+      {hint ? <span className="text-micro text-fg-3">{hint}</span> : null}
     </div>
   );
 }

@@ -91,6 +91,16 @@ export interface GameMeta {
   readonly actor: string;
   /** 文案里指代「决策发生的地方」的名词：路口 / 格子。右栏的元信息与空状态都用它。 */
   readonly place: string;
+  /**
+   * 四个玩家各自的悬浮说明，键是 `PlayMode`（"JEV" / "MANUAL" / "RANDOM" / "HEURISTIC"）。
+   *
+   * 键写成 `string` 而不是 `PlayMode`，是因为本文件是叶子模块、不 import 项目内的任何东西 ——
+   * `PlayMode` 住在 `lib/ui.ts`，反向依赖会成环。四个键是固定集合，缺一个也没关系：
+   * 控制条拿不到说明就不写 `title`。
+   *
+   * 说明必须由游戏自己写：只有它知道「由你驾驶」是开车还是转向，「对照基线」比的是什么。
+   */
+  readonly modeHints: Readonly<Record<string, string>>;
 }
 
 /* ------------------------------------------------------------- 决策点 */
@@ -274,6 +284,12 @@ export interface GameDefinition<S extends GameState> {
   pause(state: S): void;
   resume(state: S): void;
 
+  /**
+   * 固定步长（毫秒）。共用循环（`components/games/GameCanvas.tsx`）按它累加时间，
+   * 所以它是引擎语义、不是表现层参数：吃豆人 1000/60，蛇 500。
+   */
+  readonly fixedDtMs: number;
+
   /** 推进一个固定步长；返回这一步发生的事件。 */
   step(state: S, dtMs: number): readonly GameEvent[];
 
@@ -283,6 +299,24 @@ export interface GameDefinition<S extends GameState> {
   bitmap(state: S): { width: number; height: number };
   /** 事件 → 音效与粒子。表现层，改不了玩法。 */
   react(events: readonly GameEvent[], state: S, fx: FxSink): void;
+
+  /**
+   * 事件 → 面板「事件流」里的一行人话。
+   *
+   * 句子由游戏自己写：事件长什么样只有它知道（`GameEvent` 只保证有 `type`）。
+   * 会话 hook 把引擎事件过一遍这个函数，右栏拿到的是一串已经说好的字符串，
+   * 于是右栏仍然不需要知道任何游戏的事件概念。
+   */
+  describeEvent(event: GameEvent): string;
+
+  /**
+   * 手动模式的键盘映射：`KeyboardEvent.key` → 动作。
+   *
+   * 「人怎么操控它」是游戏定义的一部分，所以键位跟着游戏走，会话 hook 只认这张表。
+   * 于是手动驾驶对新游戏是免费的，而游戏页里不会出现任何方向键字面量。
+   * 不是所有游戏都用手动模式，空表即可（`{}`）。
+   */
+  readonly keyActions: Readonly<Record<string, ActionId>>;
 
   /**
    * 手挑权重的对照玩家（非学习），供「启发式」模式。

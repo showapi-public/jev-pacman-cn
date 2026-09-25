@@ -9,7 +9,7 @@
 
 export type SfxName = "chomp" | "power" | "ghost" | "death" | "level" | "click" | "start";
 
-export const SOUND_STORAGE_KEY = "jev-pacman:sound";
+export const SOUND_STORAGE_KEY = "jev:sound";
 
 export class SoundBoard {
   private context: AudioContext | null = null;

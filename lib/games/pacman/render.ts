@@ -8,8 +8,8 @@
 
 import type { PacmanState, GhostState, TilePosition } from "./types";
 import { FRIGHTENED_FLASH_MS, directionVector, tileCenter } from "./types";
-import type { JuiceState } from "./juice";
-import { shakeOffset } from "./juice";
+import type { JuiceState } from "../juice";
+import { shakeOffset } from "../juice";
 
 export const TILE = 20;
 

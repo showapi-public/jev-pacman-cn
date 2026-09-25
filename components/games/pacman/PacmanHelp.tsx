@@ -5,12 +5,14 @@ import * as React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 /**
- * What used to live in a footer under the board, moved to where it does not
- * cost a single pixel of layout: an overlay opened on demand.
+ * Pac-Man's half of the help: the three questions a first-time reader actually
+ * has — how a decision is made, what the colours mean, and what each register on
+ * the right is showing — then it gets out of the way.
  *
- * It answers the three questions a first-time reader actually has — how a
- * decision is made, what the colours mean, and what each register on the right
- * is showing — and then gets out of the way.
+ * It used to live in a footer under the board, which cost a strip of pixels on
+ * every frame; it is an overlay now. It is Pac-Man's own file because every
+ * sentence in it is about *this* board: junctions three tiles out, four ghosts,
+ * frightened pellets. The shell's dialog frame is shared; these words are not.
  */
 
 const GHOSTS = [
@@ -32,7 +34,7 @@ const PIECE_COLOR: Record<(typeof GHOSTS)[number]["piece"], string> = {
   frightened: "var(--ghost-frightened)",
 };
 
-export function HelpDialog({ children }: { children: React.ReactNode }) {
+export function PacmanHelp({ children }: { children: React.ReactNode }) {
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -49,13 +51,13 @@ export function HelpDialog({ children }: { children: React.ReactNode }) {
           </section>
 
           <section className="flex flex-col gap-1.5">
-            <h3 className="label m-0 label-strong">方向十字</h3>
+            <h3 className="label m-0 label-strong">动作盘</h3>
             <ul className="m-0 flex list-none flex-col gap-1 p-0">
               <li>
                 <b className="font-[510] text-fg">有底框的箭头</b>：这个方向可以走。
               </li>
               <li>
-                <b className="font-[510] text-pacman">琥珀色</b>：Jev 选的方向；箭头脚下的细条是它的概率。
+                <b className="font-[510] text-self">自身色</b>：Jev 选的方向；箭头脚下的细条是它的概率。
               </li>
               <li>
                 <b className="font-[510] text-warn">黄色警示</b>：这个方向来自兜底规则，不是 Jev 的答案。

@@ -3,37 +3,45 @@
 import { ArrowCounterClockwise, Bug, DownloadSimple } from "@phosphor-icons/react";
 import * as React from "react";
 
+import { ModelPicker } from "@/components/shell/ModelPicker";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Segment, Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
-import { MODE_LABELS, SPEEDS, type PlayMode, type UiSnapshot } from "@/lib/ui";
+import type { GameMeta, GameStatus } from "@/lib/games/types";
+import type { ModelCatalogue } from "@/lib/jev/models";
+import { MODE_LABELS, PLAY_MODES, SPEEDS, type PlayMode } from "@/lib/ui";
 
 /**
  * The console's control surface.
  *
  * One rule decides what goes where: anything you touch *while watching* stays
- * on the bar (who is playing, how fast, restart), and anything you set once
- * folds away behind 更多 (the seed, the debug overlay, the export, sound and
- * CRT). The primary action is not here at all — it lives in the page header,
- * where it is the only filled button on screen.
+ * on the bar (who is playing, which model answers, how fast, restart), and
+ * anything you set once folds away behind 更多 (the seed, the debug overlay, the
+ * export, sound and CRT). The primary action is not here at all — it lives in
+ * the page header, where it is the only filled button on screen.
+ *
+ * The bar names no game: the four player hints come from `meta.modeHints`, and
+ * the speed hint is derived from `budgetMs`, so nothing here has to be revisited
+ * when a second game arrives.
  */
-
-const MODE_HINTS: Record<PlayMode, string> = {
-  JEV: "由 Jev 在每个路口作答：系统提前三格提问，答案合法且及时才会被采纳。",
-  MANUAL: "由你用方向键驾驶，不向 Jev 发出任何请求。",
-  RANDOM: "随机挑选一个合法方向，作为对照基线。",
-  HEURISTIC: "内置启发式规则：优先远离危险幽灵、靠近豆子，作为对照基线。",
-};
-
-export interface GameControlsProps {
+export interface ControlBarProps {
+  /** 本游戏的展示元数据 —— 只用到 `modeHints`（四个玩家的悬浮说明）。 */
+  meta: GameMeta;
+  /** 1× 速度下的墙钟决策预算，毫秒。速度提示要按它算实际窗口。 */
+  budgetMs: number;
   mode: PlayMode;
   speed: number;
   seed: number;
   debug: boolean;
   soundOn: boolean;
   crtOn: boolean;
-  status: UiSnapshot["status"];
+  status: GameStatus;
+  /** 模型目录；null = 还没拿到。 */
+  catalogue: ModelCatalogue | null;
+  /** 当前选中的模型条目 id；null = 服务端默认。 */
+  modelId: string | null;
+  onModel: (id: string) => void;
   onMode: (mode: PlayMode) => void;
   onSpeed: (speed: number) => void;
   onSeed: (seed: number) => void;
@@ -44,23 +52,20 @@ export interface GameControlsProps {
   onExport: () => void;
 }
 
-export function GameControls(props: GameControlsProps) {
-  const { mode, speed, seed, debug, soundOn, crtOn } = props;
+export function ControlBar(props: ControlBarProps) {
+  const { meta, budgetMs, mode, speed, seed, debug, soundOn, crtOn } = props;
   const [moreOpen, setMoreOpen] = React.useState(false);
+  const aiPlaying = mode !== "MANUAL";
 
   return (
-    <Collapsible
-      open={moreOpen}
-      onOpenChange={setMoreOpen}
-      className="flex flex-col gap-2 p-3"
-    >
+    <Collapsible open={moreOpen} onOpenChange={setMoreOpen} className="flex flex-col gap-2 p-3">
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
         <Segmented label="玩家">
-          {(Object.keys(MODE_LABELS) as PlayMode[]).map((candidate) => (
+          {PLAY_MODES.map((candidate) => (
             <Segment
               key={candidate}
               pressed={mode === candidate}
-              title={MODE_HINTS[candidate]}
+              title={meta.modeHints[candidate]}
               onClick={() => props.onMode(candidate)}
             >
               {MODE_LABELS[candidate]}
@@ -68,12 +73,25 @@ export function GameControls(props: GameControlsProps) {
           ))}
         </Segmented>
 
+        <ModelPicker
+          catalogue={props.catalogue}
+          value={props.modelId}
+          onChange={props.onModel}
+          disabled={!aiPlaying}
+        />
+
         <Segmented label="速度">
           {SPEEDS.map((candidate) => (
             <Segment
               key={candidate}
               pressed={speed === candidate}
-              title={`以 ${candidate} 倍速运行。速度只影响游戏推进的快慢，不影响决策的判定时限。`}
+              /*
+               * 这句话必须诚实：速度改的是游戏时钟，所以决策窗口跟着一起缩，
+               * 不是「只影响推进快慢」。实际窗口 = 1× 预算 ÷ 倍率。
+               */
+              title={`以 ${candidate}× 运行。速度会等比压缩局面推进与决策窗口：模型实际只有约 ${Math.round(
+                budgetMs / candidate,
+              )} ms 作答。`}
               onClick={() => props.onSpeed(candidate)}
             >
               {candidate}×
@@ -123,7 +141,7 @@ export function GameControls(props: GameControlsProps) {
                 label="CRT"
                 checked={crtOn}
                 onCheckedChange={props.onToggleCrt}
-                title="在迷宫上叠加扫描线与机壳暗角。"
+                title="在棋盘上叠加扫描线与机壳暗角。"
               />
             </div>
           </div>
@@ -136,7 +154,7 @@ export function GameControls(props: GameControlsProps) {
                 aria-pressed={debug}
                 size="sm"
                 onClick={props.onToggleDebug}
-                title="叠加显示格子坐标、路口、幽灵目标与待处理请求，并在右侧多出「状态」页签。"
+                title="叠加显示格子坐标、决策点、目标与待处理请求，并在右侧多出「状态」页签。"
                 className="gap-1.5"
               >
                 <Bug aria-hidden="true" weight="bold" className="size-3.5" />

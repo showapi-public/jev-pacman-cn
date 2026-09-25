@@ -14,7 +14,7 @@ import {
   isFrozen,
   shakeOffset,
   stepJuice,
-} from "@/lib/games/pacman/juice";
+} from "@/lib/games/juice";
 
 describe("juice", () => {
   it("starts quiet", () => {

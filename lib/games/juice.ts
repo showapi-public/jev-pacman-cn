@@ -1,10 +1,17 @@
 /**
- * Juice: the feedback layer that sits on top of the game state.
+ * Juice: the feedback layer that sits on top of a game state.
  *
  * Nothing here changes the simulation. Particles, score popups, screen shake and
  * hit-stop are pure presentation, triggered by the events the engine already
  * emits. Coordinates are tile units (the renderer multiplies by TILE); shake is
  * reported in pixels.
+ *
+ * It lives in `lib/games/`, not in a game's folder, because there is nothing
+ * game-specific in it: colours and coordinates are handed in by whoever reacts
+ * to an event, and this file has no imports at all. The fixed-timestep loop —
+ * shared by every game (`components/games/GameCanvas.tsx`) — owns one
+ * `JuiceState` per run and hands it back through `PaintView.fx`, so a game's
+ * renderer can draw it without the loop knowing what a particle is.
  */
 
 export type ParticleKind = "spark" | "chunk" | "confetti";

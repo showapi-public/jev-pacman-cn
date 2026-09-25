@@ -259,9 +259,56 @@ P3 才引入第二个实现，此时契约已被一个真实游戏打磨过一�
   `app/layout.tsx`（metadata 模板 `Jev 游戏台` / `%s · Jev 游戏台`）。
 - **写死色清零**：`grep -rn "#[0-9a-fA-F]\{6\}" components --include='*.tsx'` 只应剩 `globals.css` 的令牌来源。
 
-**验收**：`tsc` + `vitest` 全绿；吃豆人的 URL 从 `/` 变为 `/pacman`，`/` 是导航首页（当前 1 个游戏时直达）。
+**验收**：`tsc` + `vitest` 全绿；吃豆人的 URL 从 `/` 变为 `/pacman`，`/` 重定向到它
+（见下方偏差：实测是 307；导航首页顺延到 P3-4）。
 
 **提交**：`重构：多游戏契约与外壳（吃豆人迁入 /pacman）`
+
+**执行时的偏差（2026-09-25）**
+
+- **拆成两步做（已与用户确认）**，因为本任务同时动「循环、组件抽取、路由」三层，中间态较大：
+  - **P2-6a（已完成）**：抽 `lib/use-game-session.ts`（泛型 `S`，吃 `GameDefinition<S>`）+
+    `components/games/GameCanvas.tsx`（通用固定步长循环）+ `components/games/pacman/
+    {PacmanMeters,PacmanHelp}.tsx`；删掉 `PacmanCanvas.tsx` / `GameMeters.tsx` / `HelpDialog.tsx`
+    与 `UiSnapshot`。此步结束时 `/` 仍是可玩的吃豆人单页，行为不变。
+    - 偏差：循环抽成**通用**组件而非每个游戏一份（见 design-multi-game §4 的偏差 1）；
+      `juice.ts` 移到 `lib/games/`；契约补 `fixedDtMs` / `describeEvent` / `keyActions`
+      三个字段；`GameDefinition.react` 从死代码变成活路径（FxSink 适配器）；
+      机台偏好键 `jev-pacman:*` → `jev:*`。
+    - 实测（dev + `JEV_MOCK=true`，1440×900，CDP 代理）：**18/18**。含两条只有这次重构才成立的
+      断言 —— ① 对局推进说明循环读到了 `game.fixedDtMs`（不再写死 `FIXED_DT_MS`）；
+      ② juice 粒子峰值 8 说明 `GameDefinition.react → FxSink` 真的在跑。
+      另：headless Chrome 的 `prefers-reduced-motion` 实测是 **false**，所以「粒子瞬时值为 0」
+      是采样撞上寿命 <1s 的空窗，不是被让路 —— 粒子要按**峰值**采样，不能按瞬时值断言。
+  - **P2-6b（已完成）**：外壳、控制条、模型选择器、路由与写死色清零。
+    - 新增 `components/shell/{MeterStrip,AppShell,ModelPicker,ControlBar}.tsx` +
+      `components/games/pages.tsx`（`GAME_PAGES`）+ `components/games/pacman/PacmanPage.tsx` +
+      `app/[game]/page.tsx`；`app/page.tsx` 改为重定向；`app/layout.tsx` metadata 改模板；
+      删掉 `GameControls.tsx`。
+    - **偏差 1（已与用户确认）**：`GAME_PAGES` 不放在 `app/`，而是 `components/games/pages.tsx`
+      且**刻意不加 `"use client"`** —— 它会被 RSC 的 `app/[game]/page.tsx` import，需要服务端
+      求值出一张真表（加 `"use client"` 会变成客户端引用，`getGamePage` 在服务端拿不到）。
+    - **偏差 2（已与用户确认）**：**只有 1 个游戏时隐藏「切换游戏」按钮**，`GameSwitcher.tsx`
+      与 `GameNavCard.tsx`、以及 `/` 的导航首页分支**推到 P3-4** 与贪吃蛇一起落地
+      （眼下 `length === 1`，导航代码没有可达状态，先写等于先引入不可测分支）。
+      因此本轮 `/` 只有重定向一个分支。
+    - **偏差 3（无用户介入，实现选择）**：`ControlBar` 的玩家提示取自 `meta.modeHints[mode]`
+      （而不是回到 `GameControls` 里写死四句），新增 `GameMeta.modeHints`；速度提示按倍率算出
+      真实窗口（`budgetMs ÷ speed`）—— 这正是本计划第 7 节决策 ① 的第 3 条。
+    - **偏差 4（实测发现，非 302）**：`/` 实测返回 **307**，不是 302。Next 的 `redirect()` 只会
+      出 307/308（保持方法语义），302 必须手写 `Response`。已确认**保留 307** —— 对 `GET` 而言
+      `Response.redirect` 的 307 与 302 行为一致，且不必为一个导航跳转绕过框架 API。
+      实测：`curl -s -o /dev/null -w '%{http_code}' /` → `307`，`Location: /pacman`；
+      `/pacman` → `200`；`/nope` → `404`（`getGamePage` 未命中 → `notFound()`）。
+    - 实测（dev + `JEV_MOCK=true`，CDP 代理）：**23/23**，`exceptions: 0` / `errorLogs: []`。
+      **踩到的坑（值得记）**：左下角「玩家」组第一个按钮被 Next dev 的悬浮指示器
+      `<nextjs-portal>` 盖住（`elementsFromPoint` 命中 `NEXTJS-PORTAL`，其 `w/h` 均为 0），
+      导致真实点击被吃、下游断言连锁失败（「决策进历史 rows=0」实测是**误报**，不是产品 bug）。
+      探针里注入 `nextjs-portal { pointer-events: none !important; }` 后全绿 —— 该覆盖只影响探针，
+      不影响产品代码。这也解释了 P2-6a 那轮把 `nextjs-portal` 误判成「运行期错误浮层」的原因。
+- **`/` 的行为改为「302 到 `/pacman`」（已与用户确认）**，而不是原计划的「1 个游戏时直接渲染
+  那个游戏」。所以：`GAME_META.length === 1` 时 `/` 是重定向、导航首页代码在眼下**没有可达的
+  状态**（要等第 2 个游戏）。`length > 1` 时 `/` 才变成导航首页。
 
 ### P2-7 Phase 2 收口验证（吃豆人）
 

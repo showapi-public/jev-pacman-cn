@@ -330,6 +330,31 @@ components/
 | `components/HelpDialog.tsx` | `components/games/pacman/PacmanHelp.tsx` |
 | `app/page.tsx` | 拆：导航 → `app/page.tsx`，机台 → `app/[game]/page.tsx` + `lib/use-game-session.ts` |
 
+**执行时的偏差（2026-09-25，P2-6a 落地后补记）**
+
+1. **固定步长循环抽成通用组件 `components/games/GameCanvas.tsx`**，不再按 §4 写在
+   `pacman/GameCanvas.tsx` 里让每个游戏各抄一份。理由：循环（累加器、隐藏标签页防偷跑
+   `MAX_STEPS_PER_FRAME`、hit-stop、DPR、100ms 发布节流）与游戏无关，只有「步长 / 位图尺寸 /
+   画一帧 / 事件怎么变成动静」是游戏的，而这四件恰好都在 `GameDefinition` 上。蛇因此不需要
+   `SnakeCanvas.tsx`。
+2. **`lib/games/pacman/juice.ts` → `lib/games/juice.ts`**：它零 import、零游戏知识（坐标与颜色
+   都由调用方传入），是共用层的东西。共用循环持有每局唯一的 `JuiceState`，经 `PaintView.fx`
+   交给该游戏的渲染器。
+3. **契约补三个字段**（`GameDefinition`）：
+   - `fixedDtMs`：循环要知道步长（吃豆人 `1000/60`，蛇 `500`）；
+   - `describeEvent(event): string`：事件 → 面板事件流的一行人话。句子由游戏写，右栏拿到的
+     是已说好的字符串，仍然零游戏知识（原来这段映射死在 `app/page.tsx` 里）；
+   - `keyActions: Record<string, ActionId>`：手动模式的键位。于是游戏页里不再出现任何方向键
+     字面量，手动驾驶对新游戏是免费的。
+4. **`GameDefinition.react` 从死代码变成活路径**：全仓库此前没有任何地方调用它，因为
+   `PacmanCanvas` 自己写了一份 `reactTo` 干同一件事。现在通用循环用一个 `FxSink` 适配器
+   （`GameCanvas.createFxSink`）把 juice + `SoundBoard` 包成契约要的形状，`prefers-reduced-motion`
+   在这一层统一兜掉，两份重复实现删掉一份。
+5. **`UiSnapshot` 删除**：它曾是「页面自己的视图类型」，其实是吃豆人字段的搬运工。现在
+   `useGameSession` 直接返回活的 `S`，各游戏的参数条自己读自己的字段。
+6. **机台偏好键全局化**：`jev-pacman:sound` → `jev:sound`，`jev-pacman:crt` → `jev:crt`。
+   音效与 CRT 是机台的属性，不是游戏的属性。
+
 ---
 
 ## 5. 路由与导航
