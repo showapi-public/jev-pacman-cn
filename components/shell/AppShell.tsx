@@ -31,6 +31,11 @@ export interface AppShellProps {
    * 缺省不裁剪，就是一个圆点。
    */
   glyph?: string;
+  /**
+   * 头部左组里、紧跟在游戏名后面的那一格（设计规范 §2.1 的内容顺序：
+   * 品牌 · 切换游戏 · 状态胶囊 · …）。游戏页放 `GameSwitcher`，导航首页没有它。
+   */
+  nav?: ReactNode;
   /** 头部 H1。 */
   title: ReactNode;
   /** H1 下面那行小字。缺省是这台机器的一句话说明。 */
@@ -41,7 +46,7 @@ export interface AppShellProps {
   children: ReactNode;
 }
 
-export function AppShell({ selfColor, glyph, title, subtitle, status, children }: AppShellProps) {
+export function AppShell({ selfColor, glyph, nav, title, subtitle, status, children }: AppShellProps) {
   return (
     <div className="app-shell" style={{ "--self": selfColor } as CSSProperties}>
       <a className="skip-link" href="#stage">
@@ -61,6 +66,7 @@ export function AppShell({ selfColor, glyph, title, subtitle, status, children }
               <h1 className="anim-flicker m-0 text-title font-[590] tracking-[-0.011em] text-fg">{title}</h1>
               <p className="m-0 truncate text-micro text-fg-3">{subtitle ?? DEFAULT_SUBTITLE}</p>
             </div>
+            {nav}
           </div>
 
           <div className="flex shrink-0 items-center gap-2">{status}</div>

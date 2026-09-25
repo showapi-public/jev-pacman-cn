@@ -159,7 +159,7 @@ letterbox 在井里。**验收条件**：任意尺寸下
 **目录分工**（完整版见 `docs/design-multi-game.md` §4）：
 `components/ui/` 原语 · `components/charts/` 两张图 · `components/console/` **右栏（游戏无关）** ·
 `components/shell/` 壳与导航（`AppShell` / `GameSwitcher` / `ModelPicker` / `MeterStrip` /
-`ControlBar` / `GameNavCard`）· `components/games/<id>/` 各游戏的画布与面板 ·
+`ControlBar` / `GameNavCard` / `NavHome`）· `components/games/<id>/` 各游戏的画布与面板 ·
 `lib/games/types.ts` 游戏契约 · `lib/games/registry.ts` 注册表。
 
 **新代码一律用工具类 + 这 9 个原语**；只有画布伪元素和关键帧动画留在
@@ -553,8 +553,10 @@ CODEBUDDY_SAFE_DELETE_ENABLED=0 npm run build   # 生产构建（沙箱会拦收
 
 - [ ] Tab 标签页要用**真实指针事件**切换 —— Radix 在 `pointerdown` 上切，合成 `click()` 无效
 - [ ] **键盘顺序**：`document.querySelectorAll` 里的可聚焦元素顺序应为
-      跳转链接 → 头部主操作 → **切换游戏** → 画布面板的说明按钮 → 玩家 → **模型** → 速度 →
+      跳转链接 → **切换游戏** → 头部主操作 → 画布面板的说明按钮 → 玩家 → **模型** → 速度 →
       重新开始 → 更多 →（有决策时）动作盘的可通行键 → 概率阶梯行 → 推理输入 → 标签条 → 标签页。
+      （切换游戏在游戏名之后、状态胶囊之前 —— §2.1 的内容顺序；早先这条写成
+      「主操作 → 切换游戏」，与 §2.1 矛盾，2026-09-25 落地切换器时按 §2.1 修正。）
       可用 `checkVisibility()` 过滤掉折叠内容与未激活标签页里的元素后逐项打印核对；
       `positiveTabindex` 必须为空数组（有正值就会打乱 DOM 顺序即 Tab 顺序的前提）。
       **不要为了「有焦点」而给不可操作的东西留 Tab 位**：不可通行的动作是 `disabled`，

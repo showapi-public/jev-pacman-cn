@@ -17,6 +17,7 @@ import { SnakeHelp } from "@/components/games/snake/SnakeHelp";
 import { SnakeMeters } from "@/components/games/snake/SnakeMeters";
 import { AppShell } from "@/components/shell/AppShell";
 import { ControlBar } from "@/components/shell/ControlBar";
+import { GameSwitcher } from "@/components/shell/GameSwitcher";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Panel, PanelActions, PanelHeader, PanelTitle } from "@/components/ui/panel";
@@ -99,6 +100,7 @@ export function SnakePage() {
     <AppShell
       selfColor={SNAKE.meta.selfColor}
       glyph={SNAKE.meta.glyph}
+      nav={<GameSwitcher current={SNAKE.meta.id} />}
       title={`Jev 玩${SNAKE.meta.name}`}
       status={status}
     >

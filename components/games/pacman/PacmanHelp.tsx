@@ -40,7 +40,11 @@ export function PacmanHelp({ children }: { children: React.ReactNode }) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent>
         <DialogTitle>这块面板在看什么</DialogTitle>
-        <DialogDescription>
+        {/* `asChild` + `div`：Radix 的 Description 默认渲染成 `<p>`，而这里是成段的
+            section —— `<p>` 里不能嵌块级元素，React 会在 hydration 时报非法嵌套。
+            这一处是 2026-09-25 接贪吃蛇的切换器时才暴露出来的既有问题。 */}
+        <DialogDescription asChild>
+          <div>
           <section className="flex flex-col gap-1.5">
             <h3 className="label m-0 label-strong">决策是怎么产生的</h3>
             <p className="m-0">
@@ -103,6 +107,7 @@ export function PacmanHelp({ children }: { children: React.ReactNode }) {
               ))}
             </dl>
           </section>
+          </div>
         </DialogDescription>
       </DialogContent>
     </Dialog>

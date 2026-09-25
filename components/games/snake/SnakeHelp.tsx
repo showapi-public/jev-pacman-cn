@@ -31,7 +31,10 @@ export function SnakeHelp({ children }: { children: React.ReactNode }) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent>
         <DialogTitle>这块面板在看什么</DialogTitle>
-        <DialogDescription>
+        {/* `asChild` + `div`：Radix 的 Description 默认渲染成 `<p>`，而这里是成段的
+            section —— `<p>` 里不能嵌块级元素，React 会在 hydration 时报非法嵌套。 */}
+        <DialogDescription asChild>
+          <div>
           <section className="flex flex-col gap-1.5">
             <h3 className="label m-0 label-strong">决策是怎么产生的</h3>
             <p className="m-0">
@@ -99,6 +102,7 @@ export function SnakeHelp({ children }: { children: React.ReactNode }) {
               撞到盘边时蛇头会变红，画面停在这一格 —— 那是这一局的最后一格，不是它摔出去之后的样子。
             </p>
           </section>
+          </div>
         </DialogDescription>
       </DialogContent>
     </Dialog>

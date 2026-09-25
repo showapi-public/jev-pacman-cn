@@ -20,6 +20,7 @@ import { PacmanHelp } from "@/components/games/pacman/PacmanHelp";
 import { PacmanMeters } from "@/components/games/pacman/PacmanMeters";
 import { AppShell } from "@/components/shell/AppShell";
 import { ControlBar } from "@/components/shell/ControlBar";
+import { GameSwitcher } from "@/components/shell/GameSwitcher";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Panel, PanelActions, PanelHeader, PanelTitle } from "@/components/ui/panel";
@@ -102,6 +103,7 @@ export function PacmanPage() {
     <AppShell
       selfColor={PACMAN.meta.selfColor}
       glyph={PACMAN.meta.glyph}
+      nav={<GameSwitcher current={PACMAN.meta.id} />}
       title={`Jev 玩${PACMAN.meta.name}`}
       status={status}
     >

@@ -42,6 +42,7 @@ import { SOUND_STORAGE_KEY, SoundBoard } from "@/lib/audio/sfx";
 import type { GameDefinition, GameEvent, GameState } from "@/lib/games/types";
 import type { ModelCatalogue } from "@/lib/jev/models";
 import { createJevProvider } from "@/lib/jev/client";
+import { useModelCatalogue } from "@/lib/use-model-catalogue";
 import type { PlayMode } from "@/lib/ui";
 
 /** The seed a fresh cabinet starts on. */
@@ -50,11 +51,11 @@ const DEFAULT_SEED = 42;
 const EVENT_LOG_SIZE = 6;
 /**
  * Cabinet preferences are global, not per game: sound and CRT are properties of
- * the machine, so one game's setting is the next game's setting.
+ * the machine, so one game's setting is the next game's setting. The chosen
+ * model is global for the same reason — it lives in `useModelCatalogue`, which
+ * the nav page also uses.
  */
 const CRT_STORAGE_KEY = "jev:crt";
-/** The chosen catalogue entry. Global for the same reason, and shared with the nav page. */
-const MODEL_STORAGE_KEY = "jev:model";
 const KONAMI = [
   "ArrowUp",
   "ArrowUp",
@@ -163,8 +164,8 @@ export function useGameSession<S extends GameState>(
   const [seed, setSeedState] = useState(initialSeed);
   const [debug, setDebugState] = useState(false);
 
-  const [catalogue, setCatalogue] = useState<ModelCatalogue | null>(null);
-  const [modelId, setModelIdState] = useState<string | null>(null);
+  // 选哪条模型目录项由共用 hook 负责（导航首页用的是同一个）；这里只负责「它是一局的属性」。
+  const { catalogue, modelId, choose: chooseModel } = useModelCatalogue();
 
   /*
    * Cabinet state. Sound starts on and is remembered; the switches below are the
@@ -223,32 +224,14 @@ export function useGameSession<S extends GameState>(
     publish();
   }, [publish, sound]);
 
+  /*
+   * The controller has to be told which entry answers — it is a property of the
+   * run, so it follows the shared choice rather than being written into the
+   * controller from two places. `null` means "the server's default".
+   */
   useEffect(() => {
-    let cancelled = false;
-    const stored = window.localStorage.getItem(MODEL_STORAGE_KEY);
-    if (stored) {
-      setModelIdState(stored);
-      controller.setModel(stored);
-    }
-    void fetch("/api/models", { cache: "no-store" })
-      .then((response) => (response.ok ? (response.json() as Promise<ModelCatalogue>) : null))
-      .then((data) => {
-        if (cancelled || !data) return;
-        setCatalogue(data);
-        // The stored id can vanish from the catalogue (its line was removed from
-        // the environment). Fall back to the default rather than keep asking
-        // with an id the server no longer knows.
-        if (stored && !data.models.some((entry) => entry.id === stored)) {
-          setModelIdState(null);
-          controller.setModel(null);
-          window.localStorage.removeItem(MODEL_STORAGE_KEY);
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [controller]);
+    controller.setModel(modelId);
+  }, [controller, modelId]);
 
   // The cabinet's easter egg: the old code, honoured. It changes nothing about
   // how the game or the model plays — only the colours of the board.
@@ -343,12 +326,11 @@ export function useGameSession<S extends GameState>(
 
   const setModel = useCallback(
     (next: string) => {
-      setModelIdState(next);
-      window.localStorage.setItem(MODEL_STORAGE_KEY, next);
-      controller.setModel(next);
+      chooseModel(next);
+      // 两个模型的决策混在一份历史里读不出结论，所以换模型 = 重开一局。
       restart(seed, mode);
     },
-    [controller, mode, restart, seed],
+    [chooseModel, mode, restart, seed],
   );
 
   const toggleDebug = useCallback(() => {
