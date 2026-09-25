@@ -381,6 +381,43 @@ P3 才引入第二个实现，此时契约已被一个真实游戏打磨过一�
 **验收**：先写 `tests/snake-engine.test.ts` 再实现 —— 移动、增长 +5、撞墙、自撞、尾巴让位、
 胜利、**同 seed 重放结果逐帧一致**。
 
+**执行结果（2026-09-25，已完成）**
+
+三个文件：`lib/games/snake/{types.ts,analysis.ts,engine.ts}` + `tests/snake-engine.test.ts`
+（27 项，一次通过）。`tsc` 0 错，全量 **199/199**（含 2 项 live；`jev-live` 第一轮拿到 502、
+复跑通过，外部抖动，与本次无关）。
+
+四处计划里没写、但必须钉住的：
+
+1. **`MOVE_MS` 不是 `fixedDtMs`。** 计划写「`MOVE_MS = 500` 固定步长 + 累加器」，容易被读成
+   「引擎步长 500」。实际是 60 Hz 切片（`FIXED_DT_MS = 1000/60`）+ **独立的格步长累加器**
+   `state.stepAccumMs`。而 `fixedDtMs` 必须 ≤ `commitWindow × MOVE_MS = 25 ms`，否则
+   `arriving` 恒为真且 `distance` 恒为 1 > 0.05 —— 控制器一次都不提问、也一次都不兜底。
+   这条已写进 `types.ts` 的 `FIXED_DT_MS` 与 `GameDefinition.fixedDtMs` 的注释。
+2. **累加器住在状态里，不在循环里。** `stepAccumMs` 是 `SnakeState` 的字段，因为驱动要读它算
+   `distance = (MOVE_MS − stepAccumMs) / MOVE_MS`。放进渲染循环的话 agent 这一侧看不到。
+3. **还没有方向时，整格时间停在满格等，而不是吞掉。** 控制器判「答案该落地了」用的是
+   `accum + fixedDtMs >= MOVE_MS`；吞掉就永远等不到，**第一次提问必然死锁**。停满格还顺手给出
+   正确结果：首位决策的 `distance` 为 0、`arriving` 为真，答案一到就落地，不必再等一个周期。
+4. **死亡与通关都 `epoch += 1`**：控制器靠它作废在途答案，否则一份为「死前那一格」算出来的方向
+   会落到新局上。
+
+两处口径决定：
+
+- **分数 = 吃到食物的个数**（不是积分制）。上游按**长度**记高分，而长度 = 1 + 食物数（增长在
+  5 步内补齐），两者是同一个量；只存一个，避免以后分叉。
+- **`analysis.ts` 多拆了两个函数**：`reachableCount(board, from, blocked)`（flood fill 与
+  「拿蛇身当墙」分开）与 `freedomAfter(state, direction)`（自由度）。后者是 P3-2 事实表的第 5 行，
+  计划只写了那一行文案，没写它从哪来。
+
+**踩到的一个真错误（只有 `tsc` 抓得到）**：`SnakeState extends GameState`，而 `types.ts` 只
+`import type { GameStatus }` —— 少了一个 import。**vitest 用 esbuild 剥类型，27 项测试全绿**，
+`tsc --noEmit` 一次报出 21 处 `Property 'status' does not exist`。所以引擎这类「纯类型契约」改动，
+测试绿不等于编译过，收尾必须跑 `tsc`。
+
+**留给 P3-3 的**：长度记 `localStorage`（历史最长）在 UI 层做，引擎不碰存储 —— 引擎是纯的，
+它连 `window` 都不该知道。
+
 ### P3-2 agent 侧（TDD）
 
 `lib/games/snake/agent.ts`：
