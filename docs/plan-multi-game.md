@@ -442,6 +442,42 @@ P3 才引入第二个实现，此时契约已被一个真实游戏打磨过一�
 2. 直方图**分桶边固定**（1× 参照系），**截止线 = `budgetMs ÷ speed`** 并标注实际毫秒数 —— P2-5；
 3. 控件提示改成「速度会等比压缩局面推进与决策窗口：2× 时模型只有一半的时间作答」—— P2-6。
 
+**待定（2026-09-25 复核 P3 前置条件时发现，决策 ① 的第 1 条与第 2/3 条互相矛盾）**
+
+第 1 条（P2-3）与第 2/3 条（P2-5 / P2-6）不能同时成立：
+
+- 控制器 `effectivePrefetchTiles = prefetch × speed`，`tests/controller.test.ts` 也钉了这一点
+  （「asks `prefetch × speed` tiles early, **so the wall-clock window holds**」，并且断言
+  2× 时「the same *wall-clock* window is twice as many tiles」）。这条的**意图是窗口恒定**：
+  按它算，窗口 = `min(d₀, prefetch × speed) × T / speed`，**上界恒为 `prefetch × T`**，
+  也就是 `budgetMs` —— 与速度无关。0.5× 时控制器最多只会给 500 ms，不是 1000 ms。
+- 但 `telemetry.decisionWindowMs(budget, speed) = budget / speed`、`SessionStats` 的
+  「截止约 budget/speed ms」、`ControlBar` 的「模型实际只有约 budget/speed ms 作答」
+  都说**窗口随速度压缩**（0.5× → 1000 ms、2× → 250 ms）。
+
+后果（两边都不诚实）：
+
+- 0.5×：UI 声称有 1000 ms，控制器最多给 500 ms → `withinDeadline` 会把迟到的答案算成
+  「在窗口内」，**正是决策 ① 想消掉的那种高估**；
+- 2×：UI 声称 250 ms，而长走道下实际可以有 500 ms → 反向低估。
+
+还有一点必须承认：窗口本身是**数据相关**的（取决于下一个决策点有多远、`d₀` 多大），
+单个数字只能是上界或下界，不可能精确。目前 UI 用的是上界。
+
+两条出路（都需要同时改 `tests/controller.test.ts` 与 `telemetry.ts` 的注释）：
+
+- **A**：保留控制器现状（窗口恒定 = `budgetMs`）→ 把 UI 文案与截止线改成恒定值，
+  删掉「2× 只有一半时间」。代价：0.5× 时控制器会**故意等**到 0.5 格才提问，白扔掉一半窗口。
+- **B**：去掉 `× speed`（回到「游戏声明的预取距离」）→ 窗口上界 = `budgetMs / speed`，
+  UI 文案与截止线不动。此时 0.5× 时模型**确实**有 1000 ms 墙钟
+  （0.5× 下蛇每 1000 ms 才走一格），「2× 只有一半时间」字面为真，三者自洽。
+
+蛇的情况更极端：`prefetch = 1`，而 `distance` 上界就是 1 格，**没有可放大的余地** ——
+所以 A 在 0.5× 下必然把窗口砍半，B 则精确等于 `budgetMs / speed`。
+
+**状态：未决 —— 等用户拍板，不擅自改。** 已向用户提出，不阻塞 P3（蛇的 `budgetMs = 500`
+两条路都一样，只有 UI 文案/截止线会跟着变）。
+
 ### 决策 ②：默认速度 ——**两个游戏都 1×**
 
 预算与文档口径一致、跨游戏可比（蛇 1× = 500ms、吃豆人 1× = 500ms）。
