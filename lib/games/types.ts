@@ -198,8 +198,13 @@ export interface GameDriver<S extends GameState> {
   decision(state: S): DecisionPoint | null;
 
   /**
-   * 预取距离（游戏空间，格）。**有效预取 = prefetch × speed**：速度倍率改的是游戏时钟，
-   * 所以墙钟上要等 `prefetch / speed` 格的时间，见 `docs/design-multi-game.md` §8。
+   * 预取距离（游戏空间，格）：**距决策点还有这么多格时就该提问**。
+   *
+   * 它**不受速度倍率影响**。速度改的是游戏时钟，所以按这个固定的游戏空间距离提问时，
+   * 墙钟窗口就是 `budgetMs / speed` —— 0.5× 下模型确实有双倍时间，2× 下一半。
+   * 控制器不许去补偿倍率：把触发距离乘上速度会让窗口变成恒定值，与 UI 的截止线、
+   * 统计面板和速度控件提示三处的说法全部冲突。
+   * 见 `docs/design-multi-game.md` §8。
    */
   readonly prefetch: number;
   /** 提交窗口（游戏空间，格）：再近就必须定下来，不能再等。 */
@@ -286,7 +291,15 @@ export interface GameDefinition<S extends GameState> {
 
   /**
    * 固定步长（毫秒）。共用循环（`components/games/GameCanvas.tsx`）按它累加时间，
-   * 所以它是引擎语义、不是表现层参数：吃豆人 1000/60，蛇 500。
+   * 所以它是引擎语义、不是表现层参数：吃豆人 1000/60，蛇也是 1000/60。
+   *
+   * **游戏内部再做「整步推进」时不要把这里设成那个整步长。** 控制器在 `arriving`
+   * 那一跳只有两个分支：答案已到手就落地、`distance ≤ commitWindow` 就兜底 ——
+   * 两者都不满足就**什么也不做**（既不提问也不兜底）。而 `arriving` 那一跳的
+   * `distance ≤ fixedDtMs / 内步长`，所以必须
+   * `fixedDtMs ≤ commitWindow × 内步长`（蛇：`0.05 × 500 = 25 ms`，取 1000/60 ≈ 16.7）。
+   * 反例：蛇若把这里设成 500（= 自己的 `MOVE_MS`），`arriving` 会恒为真且 `distance`
+   * 恒为 1 > 0.05 —— 结果是一次都不提问、也一次都不兜底。
    */
   readonly fixedDtMs: number;
 

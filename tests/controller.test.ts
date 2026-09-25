@@ -36,14 +36,14 @@ const GAME_ID = "fake";
 function makeController(options: {
   provider: DecisionProvider | null;
   clock?: VirtualClock;
-  speed?: number;
+  prefetchTiles?: number;
   timeoutMs?: number;
 }): AgentController<FakeState> {
   return new AgentController<FakeState>({
     driver: FAKE_DRIVER,
     game: GAME_ID,
     provider: options.provider,
-    speed: options.speed,
+    prefetchTiles: options.prefetchTiles,
     now: options.clock?.now,
     scheduleTimeout: options.clock?.scheduleTimeout,
     timeoutMs: options.timeoutMs,
@@ -350,15 +350,15 @@ describe("agent controller", () => {
   });
 });
 
-describe("the speed multiplier is not cosmetic", () => {
+describe("the trigger point belongs to the game, not to the speed", () => {
   /**
    * The distance the controller asked at is read back out of the request's own
    * fact table, so this is the position the game was in, not an inference.
    */
-  async function askedAt(speed: number): Promise<number> {
+  async function askedAt(prefetchTiles?: number): Promise<number> {
     const state = fakeGame();
     const provider = new ManualProvider();
-    const controller = makeController({ provider, speed });
+    const controller = makeController({ provider, prefetchTiles });
     await run(controller, state, { stopWhen: () => provider.calls.length > 0 });
 
     const value = provider.calls[0]?.facts[0]?.values.A;
@@ -366,12 +366,20 @@ describe("the speed multiplier is not cosmetic", () => {
     return Number(value);
   }
 
-  it("asks `prefetch × speed` tiles early, so the wall-clock window holds", async () => {
-    // At 1× the trigger point is the prefetch distance itself.
-    expect(await askedAt(1)).toBe(FAKE_PREFETCH);
-    // At 2× the game clock runs twice as fast, so the same *wall-clock* window
-    // is twice as many tiles — the whole gate interval, asked on the first tick.
-    expect(await askedAt(2)).toBe(FAKE_GATE_INTERVAL);
+  it("asks exactly `prefetch` tiles early: the controller owns no speed to scale it by", async () => {
+    // Sanity: the corridor is longer than the prefetch, so the trigger is walked
+    // to rather than started on top of.
+    expect(FAKE_PREFETCH).toBeLessThan(FAKE_GATE_INTERVAL);
+    // The multiplier lives in the game loop (`accumulator += elapsed * speed`)
+    // and never reaches the controller, so there is no speed to ask this at but
+    // `prefetch`. An earlier version scaled the trigger by it, which pinned the
+    // wall-clock window to a constant and contradicted the histogram's deadline
+    // line. See `docs/design-multi-game.md` §8.
+    expect(await askedAt()).toBe(FAKE_PREFETCH);
+  });
+
+  it("follows the declared distance, not a constant: an override is not scaled either", async () => {
+    expect(await askedAt(FAKE_PREFETCH + 2)).toBe(FAKE_PREFETCH + 2);
   });
 
   it("leaves the budget a driver declares alone: the speed compresses the window", () => {

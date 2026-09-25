@@ -12,7 +12,7 @@
 | # | 决策 | 结论 |
 | --- | --- | --- |
 | 1 | 本计划 | **批准**，按 P0 → P1 → P2 → P3 → P4 顺序执行 |
-| 2 | 三处「不诚实」 | **一起修**（有效预取 = `prefetch × speed`、截止线 = `budgetMs ÷ speed`、提示文案改实话） |
+| 2 | 三处「不诚实」 | **一起修**（控制器不缩放预取、截止线 = `budgetMs ÷ speed`、提示文案改实话） |
 | 3 | 默认速度 | **两个游戏都是 1×**（预算与文档口径一致、跨游戏可比） |
 | 4 | 提交 | **不自动提交**：每阶段收口后把改动范围、验证结果与建议的提交信息交给你，由你决定何时提交 |
 
@@ -156,8 +156,11 @@ P3 才引入第二个实现，此时契约已被一个真实游戏打磨过一�
 - `lib/agent/controller.ts`：`AgentController<S extends GameState>`，构造注入 `GameDriver<S>`；
   **删除**对 `findNextDecisionPoint` / `distanceToTileCenter` / `ghostTarget` 的直接 import。
   预取/提交/超时/世代作废那段逻辑**一行不改**，只把「算下一个决策点」换成 `driver.decision(state)`。
-- **速度语义修正**（`design-multi-game.md` §8）：有效预取 = `driver.prefetch × speed`，
-  新增 `setSpeed(speed)`，墙钟预算随速度等比压缩。
+- **速度语义修正**（`design-multi-game.md` §8）：墙钟预算随速度等比压缩，落成
+  `telemetry.decisionWindowMs(budgetMs, speed) = budgetMs / speed`。
+  ~~有效预取 = `driver.prefetch × speed`，新增 `setSpeed(speed)`~~
+  —— **2026-09-25 推翻**：控制器的预取**不**缩放，`setSpeed` 已删除。
+  取舍过程见 §7 决策 ①。
 - `lib/agent/telemetry.ts`：拆出 `AgentMetrics`（**不再吃 `GameState`**）；
   `latencyHistogram(records, deadlineMs)`、`overDeadlineCount(records, deadlineMs)` 参数化截止线；
   直方图**分桶边保持固定**（1× 参照系，跨局/跨游戏可比）。
@@ -169,8 +172,10 @@ P3 才引入第二个实现，此时契约已被一个真实游戏打磨过一�
 - 删除已迁空的 `lib/agent/{observation,fallback,candidates}.ts`。
 
 **验收**：`tests/controller.test.ts`（10 项，改用**假游戏驱动**）+ `telemetry.test.ts`（16 项）
-+ `providers` 相关用例全绿；新增用例断言：**预取随速度缩放、`budgetMs` 与速度无关、
-提交窗口处强制提交、`epoch` 变化后旧答案被丢弃**。
++ `providers` 相关用例全绿；新增用例断言：**预取等于游戏声明的距离（与速度无关）、`budgetMs` 与
+速度无关、提交窗口处强制提交、`epoch` 变化后旧答案被丢弃**。
+（原文写的是「预取**随**速度缩放」，2026-09-25 按 §7 决策 ① 的 B 方案改成「预取**与**速度无关」，
+该组用例已重写为 `the trigger point belongs to the game, not to the speed`。）
 
 ### P2-4 jev 层泛型化 + API v2 + 模型目录
 
@@ -203,8 +208,9 @@ P3 才引入第二个实现，此时契约已被一个真实游戏打磨过一�
    server-only 的意图改用两条更硬的约束实现：`ModelEntry`（带密钥）与 `PublicModelEntry`
    （没地方放密钥）是两个类型、路由只序列化后者，且 `tests/models.test.ts` 断言脱敏 JSON 里
    grep 不到任何 key/baseURL/字段名的碎片。
-4. **默认速度 1× 在 P2-3 落地**（此前是 0.5×）：它与「有效预取 = `prefetch × speed`」是同一次
-   语义修正的两半，分两个任务做只会让中间态的口径自相矛盾。
+4. **默认速度 1× 在 P2-3 落地**（此前是 0.5×）：它与速度语义修正是同一次口径调整的两半，
+   分两个任务做只会让中间态的口径自相矛盾。
+   （原文把这次修正写成「有效预取 = `prefetch × speed`」，该缩放已于 2026-09-25 删除，见 §7 决策 ①。）
 
 ### P2-5 右栏泛型化 + `--self` 自身色
 
@@ -420,7 +426,11 @@ P3 才引入第二个实现，此时契约已被一个真实游戏打磨过一�
 ### P4-1 文档、复检与审查
 
 - 复检 `docs/design-system.md` 与实际实现一致，尤其 §2.2 单滚动条、§6.7 口径表、§10 验收清单**逐条实跑**；
-- `README.md` 与 `docs/example-session.json` 更新到 v2 导出形状（含 `game` / `model`）；
+- `README.md` 与 `docs/example-session.json` 更新到 v2 导出形状（含 `game` / `model`）。
+  2026-09-25 顺带走查发现的其余过时处（一并改）：测试数写「95 tests」（实际 18 文件 / 171 项）、
+  果汁层路径写 `lib/game/juice.ts`（已移到 `lib/games/juice.ts`）、
+  `docs/example-session.json` 那一节是 0.5× 的旧记录；
+  速度控件那行本日已单独改成 `500 ms ÷ speed` 的口径（见 §7 决策 ①）；
 - 写 `docs/review.md`（Critical / Major / Minor 分级）与 `docs/final-report-multi-game.md`；
 - 把「多游戏可插拔架构」的落地流程沉淀成可复用 skill。
 
@@ -438,45 +448,51 @@ P3 才引入第二个实现，此时契约已被一个真实游戏打磨过一�
 
 **结论：修**，三处一起改（设计规范已在 P0-1 改完）：
 
-1. 有效预取 = `driver.prefetch × speed`（永远尽早问）—— P2-3；
+1. 控制器**不缩放**预取：仍按 `driver.prefetch` 这个固定的**游戏空间**距离提问，
+   于是墙钟窗口恰好 = `budgetMs ÷ speed`（原 P2-3 写成 `prefetch × speed`，
+   2026-09-25 按决策 ① 的复核结论改回，见下）—— P2-3；
 2. 直方图**分桶边固定**（1× 参照系），**截止线 = `budgetMs ÷ speed`** 并标注实际毫秒数 —— P2-5；
 3. 控件提示改成「速度会等比压缩局面推进与决策窗口：2× 时模型只有一半的时间作答」—— P2-6。
 
-**待定（2026-09-25 复核 P3 前置条件时发现，决策 ① 的第 1 条与第 2/3 条互相矛盾）**
+**已按 B 落地（2026-09-25）**
 
-第 1 条（P2-3）与第 2/3 条（P2-5 / P2-6）不能同时成立：
+复核 P3 前置条件时发现第 1 条与第 2/3 条互相矛盾，已向用户提出并拍板。过程与结论留档：
+
+第 1 条（P2-3）与第 2/3 条（P2-5 / P2-6）不能同时成立 ——
 
 - 控制器 `effectivePrefetchTiles = prefetch × speed`，`tests/controller.test.ts` 也钉了这一点
-  （「asks `prefetch × speed` tiles early, **so the wall-clock window holds**」，并且断言
-  2× 时「the same *wall-clock* window is twice as many tiles」）。这条的**意图是窗口恒定**：
-  按它算，窗口 = `min(d₀, prefetch × speed) × T / speed`，**上界恒为 `prefetch × T`**，
-  也就是 `budgetMs` —— 与速度无关。0.5× 时控制器最多只会给 500 ms，不是 1000 ms。
+  （「asks `prefetch × speed` tiles early, **so the wall-clock window holds**」）。这条的**意图是窗口恒定**：
+  窗口 = `min(d₀, prefetch × speed) × T / speed`，**上界恒为 `prefetch × T`**，也就是 `budgetMs` ——
+  与速度无关。0.5× 时控制器最多只会给 500 ms，不是 1000 ms。
 - 但 `telemetry.decisionWindowMs(budget, speed) = budget / speed`、`SessionStats` 的
   「截止约 budget/speed ms」、`ControlBar` 的「模型实际只有约 budget/speed ms 作答」
   都说**窗口随速度压缩**（0.5× → 1000 ms、2× → 250 ms）。
 
-后果（两边都不诚实）：
+后果（两边都不诚实）：0.5× 时 UI 声称有 1000 ms 而控制器最多给 500 ms，
+`withinDeadline` 会把迟到的答案算成「在窗口内」—— 正是决策 ① 想消掉的那种高估；2× 时反向低估。
 
-- 0.5×：UI 声称有 1000 ms，控制器最多给 500 ms → `withinDeadline` 会把迟到的答案算成
-  「在窗口内」，**正是决策 ① 想消掉的那种高估**；
-- 2×：UI 声称 250 ms，而长走道下实际可以有 500 ms → 反向低估。
+另需承认：窗口本身是**数据相关**的（取决于下一个决策点有多远、`d₀` 多大），
+单个数字只能是上界或下界。UI 用的是上界。
 
-还有一点必须承认：窗口本身是**数据相关**的（取决于下一个决策点有多远、`d₀` 多大），
-单个数字只能是上界或下界，不可能精确。目前 UI 用的是上界。
-
-两条出路（都需要同时改 `tests/controller.test.ts` 与 `telemetry.ts` 的注释）：
+两条出路，**用户选 B**：
 
 - **A**：保留控制器现状（窗口恒定 = `budgetMs`）→ 把 UI 文案与截止线改成恒定值，
   删掉「2× 只有一半时间」。代价：0.5× 时控制器会**故意等**到 0.5 格才提问，白扔掉一半窗口。
-- **B**：去掉 `× speed`（回到「游戏声明的预取距离」）→ 窗口上界 = `budgetMs / speed`，
-  UI 文案与截止线不动。此时 0.5× 时模型**确实**有 1000 ms 墙钟
-  （0.5× 下蛇每 1000 ms 才走一格），「2× 只有一半时间」字面为真，三者自洽。
+- **B（采用）**：去掉 `× speed`（回到「游戏声明的预取距离」）→ 窗口上界 = `budgetMs / speed`，
+  UI 文案与截止线不动。此时 0.5× 时模型**确实**有 1000 ms 墙钟（0.5× 下蛇每 1000 ms 才走一格），
+  「2× 只有一半时间」字面为真，三者自洽。
 
-蛇的情况更极端：`prefetch = 1`，而 `distance` 上界就是 1 格，**没有可放大的余地** ——
-所以 A 在 0.5× 下必然把窗口砍半，B 则精确等于 `budgetMs / speed`。
+选 B 的三条理由：① B 才是 `design-system.md` §6.5 的原口径（「控制器是按**游戏空间**的距离
+提前提问的」），A 是 P2-3 实现时跑偏出来的；② A 在 0.5× 下白扔掉一半窗口，与「尽早提问」的初衷相反；
+③ 蛇更极端 —— `prefetch = 1` 而 `distance` 上界就是 1 格，**没有可放大的余地**，
+A 在 0.5× 下必然把窗口砍半，B 则精确等于 `budgetMs / speed`。
 
-**状态：未决 —— 等用户拍板，不擅自改。** 已向用户提出，不阻塞 P3（蛇的 `budgetMs = 500`
-两条路都一样，只有 UI 文案/截止线会跟着变）。
+**落地内容（2026-09-25）**：`lib/agent/controller.ts` 删掉 `ControllerOptions.speed`、`private speed`
+与整个 `setSpeed()`（原位留注释说明为何刻意没有它），`effectivePrefetchTiles` 改名 `prefetchTiles`
+并去掉缩放；`lib/games/types.ts`、`lib/games/pacman/agent.ts`、`lib/use-game-session.ts`、
+`tests/helpers.ts` 的注释同步改写；`tests/controller.test.ts` 删掉 `speed` 选项，
+整组「the speed multiplier is not cosmetic」重写为「the trigger point belongs to the game, not to the speed」。
+**UI 文案与截止线一行未动** —— 它们本来就是按 `budgetMs / speed` 写的，现在只是终于为真。
 
 ### 决策 ②：默认速度 ——**两个游戏都 1×**
 

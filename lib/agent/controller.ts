@@ -63,8 +63,6 @@ export interface ControllerOptions<S extends GameState> {
   /** Which catalogue entry to ask; null or absent = whatever the server prefers. */
   modelId?: string | null;
   provider: DecisionProvider | null;
-  /** Simulation speed multiplier. It compresses the decision window, see `setSpeed`. */
-  speed?: number;
   now?: () => number;
   prefetchTiles?: number;
   minIntervalMs?: number;
@@ -129,7 +127,6 @@ export class AgentController<S extends GameState> {
   private readonly commitWindowTiles: number;
   private readonly scheduleTimeout: (callback: () => void, ms: number) => () => void;
 
-  private speed: number;
   private modelId: string | null;
 
   private pending: PendingDecision | null = null;
@@ -151,7 +148,6 @@ export class AgentController<S extends GameState> {
     this.driver = options.driver;
     this.gameId = options.game;
     this.provider = options.provider;
-    this.speed = options.speed ?? 1;
     this.modelId = options.modelId ?? null;
     this.now = options.now ?? (() => performance.now());
     this.prefetchOverride = options.prefetchTiles ?? null;
@@ -174,19 +170,19 @@ export class AgentController<S extends GameState> {
     this.lastError = null;
   }
 
-  /**
-   * Change the simulation speed.
+  /*
+   * There is deliberately no `setSpeed` here.
    *
-   * It is not cosmetic: the multiplier scales the game clock, so the wall-clock
-   * time the game takes to cover `prefetch` tiles is `prefetch / speed`. Asking
-   * after `prefetch` tiles at 2× would leave half the window the budget promises.
-   * Scaling the trigger point by the same factor is what keeps the *effective*
-   * window equal to `budgetMs / speed` — and keeps "the model had 500 ms" a true
-   * statement at 1×, which is the only speed two games can be compared at.
+   * The speed multiplier is applied by the game loop (`accumulator += elapsed *
+   * speed`), while the trigger point below stays at the driver's own `prefetch` —
+   * the earliest the game is willing to be asked. The wall-clock window is
+   * therefore `budgetMs / speed`, which is exactly what the latency histogram's
+   * deadline line, the statistics panel and the speed control's tooltip tell the
+   * reader. The controller must not compensate for the multiplier: an earlier
+   * version scaled the prefetch by it (`prefetch × speed`), which silently made
+   * the window constant and contradicted all three. See
+   * `docs/design-multi-game.md` §8.
    */
-  setSpeed(speed: number): void {
-    this.speed = speed;
-  }
 
   /**
    * Change which catalogue entry answers. `null` means the server's own default.
@@ -281,7 +277,7 @@ export class AgentController<S extends GameState> {
     // actually approaching the decision point, because an action applied any
     // earlier would be taken at the next tile centre, not at the junction.
     this.committedKey = null;
-    if (point.distance <= this.effectivePrefetchTiles) this.request(state, point);
+    if (point.distance <= this.prefetchTiles) this.request(state, point);
   }
 
   snapshot(): ControllerSnapshot {
@@ -325,15 +321,16 @@ export class AgentController<S extends GameState> {
   /* --------------------------------------------------------------- internals */
 
   /**
-   * The prefetch distance the game is actually asked at.
+   * The prefetch distance the game is actually asked at: the driver's own
+   * `prefetch`, unscaled.
    *
-   * `prefetch × speed`, because the answer has to be in hand one *wall-clock*
-   * window before the decision, and the game clock runs `speed` times faster
-   * than the wall clock.
+   * The speed multiplier deliberately does **not** enter here. Asking at a fixed
+   * *game-space* distance is what makes the wall-clock window `budgetMs / speed`,
+   * which is the one thing the reader is told about it — see the note above on
+   * why there is no `setSpeed`.
    */
-  private get effectivePrefetchTiles(): number {
-    const prefetch = this.prefetchOverride ?? this.driver.prefetch;
-    return prefetch * this.speed;
+  private get prefetchTiles(): number {
+    return this.prefetchOverride ?? this.driver.prefetch;
   }
 
   private request(state: S, point: DecisionPoint): void {

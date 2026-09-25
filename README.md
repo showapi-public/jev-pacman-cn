@@ -79,7 +79,7 @@ Press **Start**. Your key stays on the server (`app/api/decide/route.ts`) and is
 | **Start / Pause** | Starts the run; pauses the simulation without losing the decision in flight. |
 | **Restart** | New game, fresh epoch: everything in flight is discarded. |
 | **Jev / Manual / Random / Heuristic** | Who plays. Any mode switch restarts the game with that player. |
-| **0.5× / 1× / 2×** | Simulation speed. 0.5× is the default: three tiles of lookahead at 0.5× is a full second, which is comfortable for a 200 ms answer. |
+| **0.5× / 1× / 2×** | Simulation speed, 1× by default. Speed scales the game clock, so it scales the decision window with it: the model gets about `500 ms ÷ speed` to answer. Two games are only comparable at 1×, which is where the quoted budget is true. |
 | **Seed** | Fixes the ghost RNG. The same seed and the same decisions replay the same game. |
 | **Debug** | `?debug=1`: draws tile coordinates, the target junction, candidate tiles, and ghost targets. |
 | **Export JSON** | Downloads the whole session: seed, mode, summary metrics, and every decision. |

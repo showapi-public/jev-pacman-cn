@@ -198,7 +198,8 @@ export const FAKE_DRIVER: GameDriver<FakeState> = {
   frame(state, point) {
     // Carrying the distance in the fact table is not decoration: it lets a test
     // read back the exact position the controller asked at, which is the only
-    // external evidence that prefetch really scales with speed.
+    // external evidence that the request went out at the driver's own `prefetch`
+    // distance with no speed scaling on top.
     return {
       instructions: FAKE_INSTRUCTIONS,
       facts: [

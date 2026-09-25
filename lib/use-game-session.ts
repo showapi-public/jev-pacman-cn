@@ -20,9 +20,13 @@
  *   purpose — 100 ms of staleness is invisible, and copying the whole state ten
  *   times a second is not free.
  * - The **speed** effect is not cosmetic. Speed scales the game clock, so the
- *   wall-clock window a decision has to arrive in shrinks with it; the
- *   controller has to be told or it would keep asking `prefetch` tiles ahead and
- *   quietly halve the window at 2×. See `AgentController.setSpeed`.
+ *   wall-clock window a decision has to arrive in shrinks with it. The controller
+ *   is deliberately *not* told about it: it asks at the driver's own `prefetch`,
+ *   a fixed *game-space* distance, which is precisely what makes the window
+ *   `budgetMs / speed`. Scaling the trigger point here instead would pin the
+ *   window to a constant and contradict the deadline line, the statistics panel
+ *   and the speed tooltip all at once. See the note in `AgentController` where
+ *   `setSpeed` used to live, and `docs/design-multi-game.md` §8.
  * - The **model** is a property of the run, not of the request: switching it
  *   restarts the game, because a history that mixes two models' decisions cannot
  *   be read as either one's.
@@ -245,10 +249,6 @@ export function useGameSession<S extends GameState>(
       cancelled = true;
     };
   }, [controller]);
-
-  useEffect(() => {
-    controller.setSpeed(speed);
-  }, [controller, speed]);
 
   // The cabinet's easter egg: the old code, honoured. It changes nothing about
   // how the game or the model plays — only the colours of the board.

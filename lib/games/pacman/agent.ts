@@ -233,8 +233,11 @@ export function heuristicChoice(
 
 export const PACMAN_DRIVER: GameDriver<PacmanState> = {
   // Three tiles at six tiles a second is 500 ms of wall clock — at 1× speed.
-  // The speed multiplier compresses that window; the controller scales the
-  // prefetch by it so the question is still asked as early as it can be.
+  // At 2× the same three tiles go by in 250 ms, at 0.5× in 1000 ms: the window
+  // follows the clock. The driver declares a *game-space* distance and nothing
+  // else. The controller must not scale it by the speed — doing so would pin the
+  // window to 500 ms and turn the histogram's deadline line into a lie.
+  // See `docs/design-multi-game.md` §8.
   prefetch: DECISION_PREFETCH_TILES,
   commitWindow: COMMIT_WINDOW_TILES,
   budgetMs: DECISION_DEADLINE_MS,
